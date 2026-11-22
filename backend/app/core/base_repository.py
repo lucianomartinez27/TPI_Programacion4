@@ -41,8 +41,11 @@ class BaseRepository(Generic[ModelType]):
         self.session.refresh(obj)
         return obj
 
-    def delete(self, id: int) -> bool:
-        """Elimina una entidad por su ID (baja física)."""
+    def hard_delete(self, id: int) -> bool:
+        """Elimina una entidad por su ID (baja física).
+
+        Preferir baja lógica (marcar activo=False) en lugar de este método.
+        """
         obj = self.get_by_id(id)
         if obj is None:
             return False

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # CORS
     FRONTEND_ORIGIN: str = "http://localhost:5173"
 
+    # Cookies
+    SECURE_COOKIES: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

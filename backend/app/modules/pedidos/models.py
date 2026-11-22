@@ -1,30 +1,15 @@
 """Modelos SQLModel de las entidades Pedido y DetallePedido."""
 
 from datetime import datetime, timezone
-from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlmodel import Field, SQLModel, Relationship
 
+from app.modules.pedidos.enums import EstadoPedido, FormaPago
+
 if TYPE_CHECKING:
     from app.modules.usuarios.models import Usuario
     from app.modules.productos.models import Producto
-
-
-class EstadoPedido(str, Enum):
-    """Estados posibles de un pedido."""
-
-    PENDIENTE = "PENDIENTE"
-    EN_PREPARACION = "EN_PREPARACION"
-    ENTREGADO = "ENTREGADO"
-    CANCELADO = "CANCELADO"
-
-
-class FormaPago(str, Enum):
-    """Formas de pago aceptadas."""
-
-    EFECTIVO = "EFECTIVO"
-    TRANSFERENCIA = "TRANSFERENCIA"
 
 
 class Pedido(SQLModel, table=True):

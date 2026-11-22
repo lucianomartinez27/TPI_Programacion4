@@ -6,8 +6,8 @@ from typing import Sequence
 from sqlmodel import Session, select, func
 
 from app.core.base_repository import BaseRepository
+from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.models import DetallePedido, Pedido
-from app.modules.pedidos.schemas import EstadoPedido
 
 
 class PedidoRepository(BaseRepository[Pedido]):

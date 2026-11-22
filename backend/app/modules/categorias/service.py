@@ -10,6 +10,7 @@ from app.modules.categorias.schemas import (
     NombreDuplicado,
 )
 from app.modules.categorias.unit_of_work import CategoriaUnitOfWork
+from app.modules.productos.models import Producto
 
 
 class CategoriaService:
@@ -84,11 +85,26 @@ class CategoriaService:
             return CategoriaRead.model_validate(categoria)
 
     def delete_categoria(self, categoria_id: int) -> None:
-        """Desactiva una categoría (baja lógica)."""
+        """Desactiva una categoría (baja lógica).
+
+        RN: No se puede desactivar si tiene productos activos asociados.
+        """
         with CategoriaUnitOfWork() as uow:
             repository = self._repo(uow.session)
             categoria = repository.get_by_id(categoria_id)
             if categoria is None:
                 raise CategoriaNoEncontrada("Categoría no encontrada")
+
+            # Verificar que no tenga productos activos asociados
+            productos = uow.session.exec(
+                Producto.__table__.select().where(
+                    Producto.categoria_id == categoria_id, Producto.activo == True  # noqa: E712
+                )
+            ).all()
+            if productos:
+                raise CategoriaNoEncontrada(
+                    "No se puede desactivar una categoría con productos activos asociados"
+                )
+
             categoria.activo = False
             uow.session.add(categoria)

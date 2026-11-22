@@ -1,10 +1,10 @@
 """Service para el módulo de productos."""
 
 from app.modules.categorias.models import Categoria
+from app.modules.categorias.schemas import CategoriaRead
 from app.modules.productos.models import Producto
 from app.modules.productos.repository import ProductoRepository
 from app.modules.productos.schemas import (
-    CategoriaRead,
     ProductoCreate,
     ProductoNoEncontrado,
     ProductoRead,

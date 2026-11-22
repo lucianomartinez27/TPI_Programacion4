@@ -21,3 +21,8 @@ class UsuarioRepository(BaseRepository[Usuario]):
         """Busca un usuario por su username."""
         stmt = select(Usuario).where(Usuario.username == username)
         return self.session.exec(stmt).first()
+
+    def get_by_role(self, role: str) -> list[Usuario]:
+        """Busca todos los usuarios con un rol específico."""
+        stmt = select(Usuario).where(Usuario.role == role)
+        return self.session.exec(stmt).all()

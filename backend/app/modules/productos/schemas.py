@@ -2,19 +2,14 @@
 
 from pydantic import BaseModel, Field
 
+from app.core.exceptions import ProductoNoDisponible, StockInsuficiente
+from app.modules.categorias.schemas import CategoriaRead
+
 
 # --- Excepciones de dominio ---
 
 class ProductoNoEncontrado(Exception):
     """El producto solicitado no existe."""
-
-
-class StockInsuficiente(Exception):
-    """No hay suficiente stock para la operación."""
-
-
-class ProductoNoDisponible(Exception):
-    """El producto no está disponible."""
 
 
 # --- Schemas ---
@@ -47,18 +42,6 @@ class ProductoStockUpdate(BaseModel):
     """Schema para actualizar solo el stock de un producto."""
 
     stock: int = Field(ge=0)
-
-
-class CategoriaRead(BaseModel):
-    """Schema de lectura de una categoría (referencia en ProductoRead)."""
-
-    id: int
-    nombre: str
-    descripcion: str | None
-    activo: bool
-
-    class Config:
-        from_attributes = True
 
 
 class ProductoRead(BaseModel):

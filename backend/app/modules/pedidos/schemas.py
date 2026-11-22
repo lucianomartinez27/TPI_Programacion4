@@ -1,9 +1,11 @@
 """Schemas Pydantic y excepciones de dominio para el módulo de pedidos."""
 
 from datetime import datetime
-from enum import Enum
 
 from pydantic import BaseModel, Field
+
+from app.core.exceptions import ProductoNoDisponible, StockInsuficiente
+from app.modules.pedidos.enums import EstadoPedido, FormaPago
 
 
 # --- Excepciones de dominio ---
@@ -20,30 +22,8 @@ class ProductoRepetido(Exception):
     """Se intentaron agregar productos repetidos en el mismo pedido."""
 
 
-class StockInsuficiente(Exception):
-    """No hay suficiente stock para la operación."""
-
-
-class ProductoNoDisponible(Exception):
-    """El producto no está disponible."""
-
-
 class TransicionInvalida(Exception):
     """La transición de estado no es válida."""
-
-
-# --- Enums ---
-
-class EstadoPedido(str, Enum):
-    PENDIENTE = "PENDIENTE"
-    EN_PREPARACION = "EN_PREPARACION"
-    ENTREGADO = "ENTREGADO"
-    CANCELADO = "CANCELADO"
-
-
-class FormaPago(str, Enum):
-    EFECTIVO = "EFECTIVO"
-    TRANSFERENCIA = "TRANSFERENCIA"
 
 
 # --- Schemas ---

@@ -1,11 +1,9 @@
 """Service para el módulo de pedidos con máquina de estados y reglas de negocio."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlmodel import Session
-
-from app.modules.pedidos.models import DetallePedido, Pedido, EstadoPedido
-from app.modules.pedidos.repository import DetallePedidoRepository, PedidoRepository
+from app.modules.pedidos.enums import EstadoPedido
+from app.modules.pedidos.models import DetallePedido, Pedido
 from app.modules.pedidos.schemas import (
     CambioEstado,
     DetallePedidoRead,
@@ -36,11 +34,6 @@ class PedidoService:
     """Lógica de negocio para la gestión de pedidos."""
 
     uow = PedidoUnitOfWork
-
-    def __init__(self, session: Session):
-        self.session = session
-        self.pedido_repo = PedidoRepository(session)
-        self.detalle_repo = DetallePedidoRepository(session)
 
     def create_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoRead:
         """
@@ -111,10 +104,11 @@ class PedidoService:
 
     def get_pedido(self, pedido_id: int) -> PedidoRead:
         """Obtiene un pedido con sus líneas."""
-        pedido = self.pedido_repo.get_by_id(pedido_id)
-        if pedido is None:
-            raise PedidoNoEncontrado("Pedido no encontrado")
-        return self._build_pedido_read(pedido, self.session)
+        with self.uow as uow:
+            pedido = uow.pedidos.get_by_id(pedido_id)
+            if pedido is None:
+                raise PedidoNoEncontrado("Pedido no encontrado")
+            return self._build_pedido_read(pedido, uow.session)
 
     def list_pedidos(
         self, usuario_id: int, role: str, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
@@ -123,26 +117,28 @@ class PedidoService:
         Lista pedidos: propios si es user, todos si es admin.
         Soporta filtro por estado y paginación.
         """
-        if role == "admin":
-            total, pedidos = self.pedido_repo.get_all_admin(skip=skip, limit=limit, estado=estado)
-        else:
-            total, pedidos = self.pedido_repo.get_by_user(
-                usuario_id, skip=skip, limit=limit, estado=estado
-            )
-        items = [self._build_pedido_read(p, self.session) for p in pedidos]
-        return PedidosPaginados(total=total, items=items)
+        with self.uow as uow:
+            if role == "admin":
+                total, pedidos = uow.pedidos.get_all_admin(skip=skip, limit=limit, estado=estado)
+            else:
+                total, pedidos = uow.pedidos.get_by_user(
+                    usuario_id, skip=skip, limit=limit, estado=estado
+                )
+            items = [self._build_pedido_read(p, uow.session) for p in pedidos]
+            return PedidosPaginados(total=total, items=items)
 
     def get_resumen(self) -> ResumenPedidos:
         """Devuelve el resumen de pedidos para el panel de administración."""
-        counts = self.pedido_repo.get_counts_by_state()
-        return ResumenPedidos(
-            pendientes=counts.get(EstadoPedido.PENDIENTE, 0),
-            en_preparacion=counts.get(EstadoPedido.EN_PREPARACION, 0),
-            entregados=counts.get(EstadoPedido.ENTREGADO, 0),
-            cancelados=counts.get(EstadoPedido.CANCELADO, 0),
-            pedidos_hoy=self.pedido_repo.get_today_count(),
-            ingresos_entregados=self.pedido_repo.get_delivered_revenue(),
-        )
+        with self.uow as uow:
+            counts = uow.pedidos.get_counts_by_state()
+            return ResumenPedidos(
+                pendientes=counts.get(EstadoPedido.PENDIENTE, 0),
+                en_preparacion=counts.get(EstadoPedido.EN_PREPARACION, 0),
+                entregados=counts.get(EstadoPedido.ENTREGADO, 0),
+                cancelados=counts.get(EstadoPedido.CANCELADO, 0),
+                pedidos_hoy=uow.pedidos.get_today_count(),
+                ingresos_entregados=uow.pedidos.get_delivered_revenue(),
+            )
 
     def cancelar_pedido(self, pedido_id: int, usuario_id: int) -> PedidoRead:
         """
@@ -169,7 +165,7 @@ class PedidoService:
                     uow.session.add(producto)
 
             pedido.estado = EstadoPedido.CANCELADO
-            pedido.updated_at = datetime.now()
+            pedido.updated_at = datetime.now(timezone.utc)
             uow.session.add(pedido)
             uow.session.flush()
             uow.session.refresh(pedido)
@@ -204,16 +200,19 @@ class PedidoService:
                         uow.session.add(producto)
 
             pedido.estado = data.estado
-            pedido.updated_at = datetime.now()
+            pedido.updated_at = datetime.now(timezone.utc)
             uow.session.add(pedido)
             uow.session.flush()
             uow.session.refresh(pedido)
 
             return self._build_pedido_read(pedido, uow.session)
 
-    def _build_pedido_read(self, pedido: Pedido, session: Session) -> PedidoRead:
+    def _build_pedido_read(self, pedido: "Pedido", session) -> PedidoRead:
         """Construye un PedidoRead con sus líneas."""
-        lineas = self.detalle_repo.get_by_pedido(pedido.id)
+        from app.modules.pedidos.repository import DetallePedidoRepository
+
+        detalle_repo = DetallePedidoRepository(session)
+        lineas = detalle_repo.get_by_pedido(pedido.id)
         return PedidoRead(
             id=pedido.id,
             usuario_id=pedido.usuario_id,

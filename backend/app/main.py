@@ -13,6 +13,12 @@ from app.modules.categorias.router import router as categorias_router
 from app.modules.productos.router import router as productos_router
 from app.modules.pedidos.router import router as pedidos_router
 
+# Importar todos los modelos para que SQLModel los registre antes de create_all_tables
+from app.modules.usuarios.models import Usuario  # noqa: F401
+from app.modules.categorias.models import Categoria  # noqa: F401
+from app.modules.productos.models import Producto  # noqa: F401
+from app.modules.pedidos.models import Pedido, DetallePedido  # noqa: F401
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

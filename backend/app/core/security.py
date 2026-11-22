@@ -1,11 +1,15 @@
 """Utilidades de seguridad: hash de contraseñas, tokens JWT y OAuth2."""
 
+import logging
+
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -35,5 +39,6 @@ def decode_access_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as exc:
+        logger.warning("Token JWT inválido: %s", exc)
         return None

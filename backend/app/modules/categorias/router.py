@@ -30,6 +30,17 @@ def list_categorias(
     return service.list_categorias_activas(skip=skip, limit=limit)
 
 
+@router.get("/admin", response_model=list[CategoriaRead])
+def list_all_categorias(
+    service: CategoriaService = Depends(get_service),
+    admin_user: Usuario = Depends(require_role("admin")),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """Lista todas las categorías (incluidas las inactivas). Solo admin."""
+    return service.list_categorias(skip=skip, limit=limit)
+
+
 @router.get("/{categoria_id}", response_model=CategoriaRead)
 def get_categoria(
     categoria_id: int,

@@ -1,11 +1,9 @@
 """Router de endpoints para el módulo de pedidos."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
 
-from app.core.database import get_session
 from app.core.deps import get_current_active_user, require_role
-from app.modules.pedidos.models import EstadoPedido
+from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.schemas import (
     CambioEstado,
     PedidoAjeno,
@@ -25,8 +23,8 @@ from app.modules.usuarios.models import Usuario
 router = APIRouter(tags=["pedidos"])
 
 
-def get_service(session: Session = Depends(get_session)) -> PedidoService:
-    return PedidoService(session)
+def get_service() -> PedidoService:
+    return PedidoService()
 
 
 @router.post("/", response_model=PedidoRead, status_code=status.HTTP_201_CREATED)
@@ -91,6 +89,19 @@ def get_pedido(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso")
 
     return pedido
+
+
+@router.get("/admin/{pedido_id}", response_model=PedidoRead)
+def get_pedido_admin(
+    pedido_id: int,
+    service: PedidoService = Depends(get_service),
+    admin_user: Usuario = Depends(require_role("admin")),
+):
+    """Obtiene el detalle de un pedido específico. Solo admin."""
+    try:
+        return service.get_pedido(pedido_id)
+    except PedidoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.patch("/{pedido_id}/cancelar", response_model=PedidoRead)
