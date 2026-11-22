@@ -8,7 +8,7 @@ export async function listAllPedidos(
   limit = 20,
   estado?: EstadoPedido,
 ): Promise<PedidosPaginados> {
-  const params: Record<string, any> = { skip, limit };
+  const params: Record<string, string | number> = { skip, limit };
   if (estado) params.estado = estado;
   const { data } = await api.get<PedidosPaginados>('/pedidos/', { params });
   return data;
@@ -34,16 +34,16 @@ export async function getResumenPedidos(): Promise<ResumenPedidos> {
 
 // Usuarios admin
 export async function listUsers(): Promise<UsuarioListRead[]> {
-  const { data } = await api.get<UsuarioListRead[]>('/usuarios/');
+  const { data } = await api.get<UsuarioListRead[]>('/admin/usuarios/');
   return data;
 }
 
 export async function activateUser(userId: number): Promise<UsuarioListRead> {
-  const { data } = await api.post<UsuarioListRead>(`/usuarios/${userId}/activar`);
+  const { data } = await api.post<UsuarioListRead>(`/admin/usuarios/${userId}/activar`);
   return data;
 }
 
 export async function deactivateUser(userId: number): Promise<UsuarioListRead> {
-  const { data } = await api.post<UsuarioListRead>(`/usuarios/${userId}/desactivar`);
+  const { data } = await api.post<UsuarioListRead>(`/admin/usuarios/${userId}/desactivar`);
   return data;
 }

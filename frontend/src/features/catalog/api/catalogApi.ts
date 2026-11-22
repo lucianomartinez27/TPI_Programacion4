@@ -7,7 +7,7 @@ export async function listProductos(
   search?: string,
   categoria_id?: number,
 ): Promise<ProductosPaginados> {
-  const params: Record<string, any> = { skip, limit };
+  const params: Record<string, string | number> = { skip, limit };
   if (search) params.search = search;
   if (categoria_id) params.categoria_id = categoria_id;
   const { data } = await api.get<ProductosPaginados>('/productos/', { params });
@@ -49,8 +49,11 @@ export async function updateProducto(
   return result;
 }
 
-export async function updateStock(id: number, stock: number): Promise<ProductoRead> {
-  const { data: result } = await api.patch<ProductoRead>(`/productos/${id}/stock`, { stock });
+export async function updateStock(
+  id: number,
+  payload: { stock: number; disponible?: boolean },
+): Promise<ProductoRead> {
+  const { data: result } = await api.patch<ProductoRead>(`/productos/${id}/stock`, payload);
   return result;
 }
 

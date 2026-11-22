@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getResumenPedidos, listAllPedidos, updateEstadoPedido, listUsers, activateUser, deactivateUser } from '../api/adminApi';
-import { createProducto, updateProducto, deleteProducto, createCategoria, updateCategoria, deleteCategoria, listAllCategorias } from '../../catalog/api/catalogApi';
+import { createProducto, updateProducto, updateStock, deleteProducto, createCategoria, updateCategoria, deleteCategoria, listAllCategorias } from '../../catalog/api/catalogApi';
 import { throwApiError } from '../../../shared/api/handleApiError';
 import { EstadoPedido } from '../../../shared/api/types';
 import { PRODUCTOS_KEY, CATEGORIAS_KEY } from '../../catalog/hooks/useCatalog';
@@ -75,10 +75,31 @@ export function useDeactivateUserMutation() {
 }
 
 // Productos admin
+export interface ProductoCreatePayload {
+  categoria_id: number;
+  nombre: string;
+  descripcion?: string;
+  precio_base: number;
+  imagen_url?: string;
+  stock: number;
+  disponible?: boolean;
+}
+
+export interface ProductoUpdatePayload {
+  categoria_id?: number;
+  nombre?: string;
+  descripcion?: string;
+  precio_base?: number;
+  imagen_url?: string;
+  stock?: number;
+  disponible?: boolean;
+  activo?: boolean;
+}
+
 export function useCreateProductoMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => createProducto(data),
+    mutationFn: (data: ProductoCreatePayload) => createProducto(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
@@ -91,8 +112,22 @@ export function useCreateProductoMutation() {
 export function useUpdateProductoMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
+    mutationFn: ({ id, data }: { id: number; data: ProductoUpdatePayload }) =>
       updateProducto(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
+    },
+    onError: (error) => {
+      throwApiError(error);
+    },
+  });
+}
+
+export function useUpdateStockMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, stock, disponible }: { id: number; stock: number; disponible?: boolean }) =>
+      updateStock(id, { stock, disponible }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
@@ -140,7 +175,7 @@ export function useCreateCategoriaMutation() {
 export function useUpdateCategoriaMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
+    mutationFn: ({ id, data }: { id: number; data: { nombre?: string; descripcion?: string; activo?: boolean } }) =>
       updateCategoria(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });

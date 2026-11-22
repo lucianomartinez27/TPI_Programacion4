@@ -7,13 +7,15 @@ import { useEffect } from 'react';
 
 function AppContent() {
   const setUser = useAuthStore((s) => s.setUser);
-  const { data: user, isLoading } = useMe();
+  const { data: user, isLoading, isError } = useMe();
 
   useEffect(() => {
     if (user) {
       setUser(user);
+    } else if (isError) {
+      setUser(null);
     }
-  }, [user, setUser]);
+  }, [user, isError, setUser]);
 
   if (isLoading) {
     return (

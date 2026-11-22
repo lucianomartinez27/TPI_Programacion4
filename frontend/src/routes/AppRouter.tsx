@@ -1,8 +1,10 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CatalogPage } from '../features/catalog/pages/CatalogPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
+import { UnauthorizedPage } from '../features/auth/pages/UnauthorizedPage';
 import { CartPage } from '../features/cart/pages/CartPage';
+import { CheckoutPage } from '../features/cart/pages/CheckoutPage';
 import { OrdersPage } from '../features/orders/pages/OrdersPage';
 import { AdminResumenPage } from '../features/admin/pages/AdminResumenPage';
 import { AdminPedidosPage } from '../features/admin/pages/AdminPedidosPage';
@@ -19,34 +21,39 @@ export function AppRouter() {
         <Route path="/" element={<CatalogPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/carrito" element={<CartPage />} />
+        <Route path="/cart" element={<Navigate to="/carrito" replace />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
         {/* Requieren autenticación */}
         <Route
-          path="/cart"
+          path="/checkout"
           element={
             <ProtectedRoute>
-              <CartPage />
+              <CheckoutPage />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/orders"
+          path="/mis-pedidos"
           element={
             <ProtectedRoute>
               <OrdersPage />
             </ProtectedRoute>
           }
         />
+        <Route path="/orders" element={<Navigate to="/mis-pedidos" replace />} />
 
         {/* Admin */}
         <Route
-          path="/admin"
+          path="/admin/resumen"
           element={
             <ProtectedRoute requireAdmin>
               <AdminResumenPage />
             </ProtectedRoute>
           }
         />
+        <Route path="/admin" element={<Navigate to="/admin/resumen" replace />} />
         <Route
           path="/admin/pedidos"
           element={

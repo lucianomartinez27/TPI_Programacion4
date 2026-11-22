@@ -7,6 +7,7 @@ export interface UserRead {
   full_name: string;
   role: string;
   disabled: boolean;
+  created_at: string;
 }
 
 export interface UsuarioListRead {
@@ -16,6 +17,7 @@ export interface UsuarioListRead {
   full_name: string;
   role: string;
   disabled: boolean;
+  created_at: string;
 }
 
 export interface CategoriaRead {

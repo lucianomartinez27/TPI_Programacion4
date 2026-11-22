@@ -12,6 +12,25 @@ interface CartState {
   totalItems: () => number;
 }
 
+function normalizeCartItem(raw: unknown): CartItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, unknown>;
+  const productoId = Number(item.producto_id ?? item.id);
+  if (!Number.isFinite(productoId) || productoId <= 0) return null;
+
+  const precioRaw = item.precio_base ?? item.precio ?? 0;
+  const precioBase = Number(precioRaw);
+  const cantidad = Math.max(1, Math.floor(Number(item.cantidad ?? 1) || 1));
+
+  return {
+    producto_id: productoId,
+    nombre: typeof item.nombre === 'string' ? item.nombre : 'Producto',
+    precio_base: Number.isFinite(precioBase) ? precioBase : 0,
+    cantidad,
+    imagen_url: typeof item.imagen_url === 'string' ? item.imagen_url : null,
+  };
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -29,7 +48,14 @@ export const useCartStore = create<CartState>()(
             };
           }
           return {
-            items: [...state.items, { ...item, cantidad: item.cantidad ?? 1 }],
+            items: [
+              ...state.items,
+              {
+                ...item,
+                precio_base: Number(item.precio_base) || 0,
+                cantidad: item.cantidad ?? 1,
+              },
+            ],
           };
         });
       },
@@ -51,14 +77,29 @@ export const useCartStore = create<CartState>()(
       },
       vaciar: () => set({ items: [] }),
       total: () => {
-        return get().items.reduce((sum, i) => sum + i.precio_base * i.cantidad, 0);
+        return get().items.reduce(
+          (sum, i) => sum + (Number(i.precio_base) || 0) * (Number(i.cantidad) || 0),
+          0,
+        );
       },
       totalItems: () => {
-        return get().items.reduce((sum, i) => sum + i.cantidad, 0);
+        return get().items.reduce((sum, i) => sum + (Number(i.cantidad) || 0), 0);
       },
     }),
     {
       name: 'cart-storage',
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as { items?: unknown[] } | undefined;
+        const normalizedItems = Array.isArray(persisted?.items)
+          ? persisted.items
+              .map(normalizeCartItem)
+              .filter((item): item is CartItem => item !== null)
+          : currentState.items;
+        return {
+          ...currentState,
+          items: normalizedItems,
+        };
+      },
     },
   ),
 );

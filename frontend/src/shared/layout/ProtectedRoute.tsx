@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useAuthStore } from '../../store/authStore';
 
 interface ProtectedRouteProps {
@@ -21,7 +21,7 @@ export function ProtectedRoute({
   }
 
   if (requireAdmin && user?.role !== 'admin') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return <>{children}</>;

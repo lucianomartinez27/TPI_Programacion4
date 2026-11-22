@@ -7,12 +7,13 @@ export const ME_QUERY_KEY = ['auth', 'me'];
 
 export function useMe() {
   const isAuthPage = ['/login', '/register'].includes(window.location.pathname);
+  const hasStoredUser = useAuthStore((s) => s.user !== null);
 
   return useQuery({
     queryKey: ME_QUERY_KEY,
     queryFn: getMe,
     retry: false,
-    enabled: !isAuthPage,
+    enabled: !isAuthPage && hasStoredUser,
   });
 }
 
@@ -21,8 +22,13 @@ export function useLoginMutation() {
   return useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       login(username, password),
-    onSuccess: () => {
-      getMe().then(setUser).catch(() => {});
+    onSuccess: async () => {
+      try {
+        const user = await getMe();
+        setUser(user);
+      } catch {
+        // Si falla la carga del perfil tras login, se mantiene el flujo
+      }
     },
   });
 }

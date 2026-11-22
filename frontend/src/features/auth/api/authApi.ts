@@ -45,16 +45,16 @@ export async function changePassword(data: {
 
 // Admin
 export async function listUsers(): Promise<UsuarioListRead[]> {
-  const { data } = await api.get<UsuarioListRead[]>('/usuarios/');
+  const { data } = await api.get<UsuarioListRead[]>('/admin/usuarios/');
   return data;
 }
 
 export async function activateUser(userId: number): Promise<UsuarioListRead> {
-  const { data } = await api.post<UsuarioListRead>(`/usuarios/${userId}/activar`);
+  const { data } = await api.post<UsuarioListRead>(`/admin/usuarios/${userId}/activar`);
   return data;
 }
 
 export async function deactivateUser(userId: number): Promise<UsuarioListRead> {
-  const { data } = await api.post<UsuarioListRead>(`/usuarios/${userId}/desactivar`);
+  const { data } = await api.post<UsuarioListRead>(`/admin/usuarios/${userId}/desactivar`);
   return data;
 }

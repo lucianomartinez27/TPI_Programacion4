@@ -35,28 +35,28 @@ export function Navbar() {
             <Link to="/" className="text-gray-700 hover:text-orange-600 text-sm font-medium">
               Catálogo
             </Link>
+            <Link to="/carrito" className="relative text-gray-700 hover:text-orange-600 text-sm font-medium">
+              <ShoppingCart className="h-5 w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -top-2 -right-2 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
 
             {user ? (
               <>
-                <Link to="/cart" className="relative text-gray-700 hover:text-orange-600 text-sm font-medium">
-                  <ShoppingCart className="h-5 w-5" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-orange-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {totalItems}
-                    </span>
-                  )}
-                </Link>
-                <Link to="/orders" className="text-gray-700 hover:text-orange-600 text-sm font-medium">
+                <Link to="/mis-pedidos" className="text-gray-700 hover:text-orange-600 text-sm font-medium">
                   Mis pedidos
                 </Link>
                 {isAdmin && (
-                  <Link to="/admin" className="text-gray-700 hover:text-orange-600 text-sm font-medium">
+                  <Link to="/admin/resumen" className="text-gray-700 hover:text-orange-600 text-sm font-medium">
                     Admin
                   </Link>
                 )}
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-700">{user.full_name}</span>
+                  <span className="text-sm text-gray-700">{user.full_name} ({user.role})</span>
                   <button
                     onClick={handleLogout}
                     className="text-gray-500 hover:text-red-600"
@@ -93,16 +93,16 @@ export function Navbar() {
             <Link to="/" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
               Catálogo
             </Link>
+            <Link to="/carrito" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
+              Carrito ({totalItems})
+            </Link>
             {user ? (
               <>
-                <Link to="/cart" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
-                  Carrito ({totalItems})
-                </Link>
-                <Link to="/orders" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
+                <Link to="/mis-pedidos" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
                   Mis pedidos
                 </Link>
                 {isAdmin && (
-                  <Link to="/admin" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
+                  <Link to="/admin/resumen" className="block text-gray-700 hover:text-orange-600 text-sm font-medium">
                     Admin
                   </Link>
                 )}

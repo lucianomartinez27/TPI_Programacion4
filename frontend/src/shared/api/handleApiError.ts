@@ -1,5 +1,4 @@
 import { AxiosError } from 'axios';
-import { QueryClient } from '@tanstack/react-query';
 
 /**
  * Convierte el `detail` de la API en un mensaje legible para la pantalla.
@@ -11,7 +10,9 @@ export function handleApiError(error: unknown): string {
       return detail;
     }
     if (Array.isArray(detail)) {
-      return detail.map((d: any) => d.msg || String(d)).join(', ');
+      return detail
+        .map((d: { msg?: string }) => d.msg || String(d))
+        .join(', ');
     }
     return error.message || 'Error de comunicación con el servidor';
   }

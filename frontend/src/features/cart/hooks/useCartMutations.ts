@@ -2,12 +2,13 @@ import { useMutation } from '@tanstack/react-query';
 import { useCartStore } from '../../../store/cartStore';
 import { createPedido } from '../api/cartApi';
 import { throwApiError } from '../../../shared/api/handleApiError';
+import type { FormaPago } from '../../../shared/api/types';
 
 export function useCreatePedidoMutation() {
   const vaciar = useCartStore((s) => s.vaciar);
   return useMutation({
     mutationFn: (data: {
-      forma_pago: string;
+      forma_pago: FormaPago;
       direccion_entrega: string;
       notas?: string;
       items: { producto_id: number; cantidad: number }[];
