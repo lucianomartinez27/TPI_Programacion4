@@ -63,5 +63,5 @@ class ProductoRepository(BaseRepository[Producto]):
         total = self.session.exec(count_stmt).one()
 
         # Obtener resultados paginados
-        results = stmt.offset(skip).limit(limit).all()
+        results = self.session.exec(stmt.offset(skip).limit(limit)).all()
         return total, results

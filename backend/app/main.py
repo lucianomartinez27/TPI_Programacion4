@@ -53,7 +53,7 @@ def health():
 
 # Rutas con prefijo /api/v1
 app.include_router(auth_router, prefix="/api/v1/auth")
-app.include_router(usuarios_router, prefix="/api/v1/usuarios")
+app.include_router(usuarios_router, prefix="/api/v1/admin/usuarios")
 app.include_router(categorias_router, prefix="/api/v1/categorias")
 app.include_router(productos_router, prefix="/api/v1/productos")
 app.include_router(pedidos_router, prefix="/api/v1/pedidos")

@@ -42,6 +42,7 @@ class ProductoService:
                 precio_base=data.precio_base,
                 imagen_url=data.imagen_url,
                 stock=data.stock,
+                disponible=data.disponible,
             )
             uow.session.add(producto)
             uow.session.flush()
@@ -53,7 +54,7 @@ class ProductoService:
         with ProductoUnitOfWork() as uow:
             repository = self._repo(uow.session)
             producto = repository.get_by_id(producto_id)
-            if producto is None:
+            if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
             return self._build_producto_read(producto, uow.session)
 
@@ -80,10 +81,15 @@ class ProductoService:
         with ProductoUnitOfWork() as uow:
             repository = self._repo(uow.session)
             producto = repository.get_by_id(producto_id)
-            if producto is None:
+            if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
 
             update_data = data.model_dump(exclude_unset=True)
+            if "categoria_id" in update_data:
+                categoria = uow.session.get(Categoria, update_data["categoria_id"])
+                if categoria is None or not categoria.activo:
+                    raise ProductoNoEncontrado("La categoría especificada no existe o no está activa")
+
             producto.sqlmodel_update(update_data)
             uow.session.add(producto)
             uow.session.flush()
@@ -91,15 +97,18 @@ class ProductoService:
             return self._build_producto_read(producto, uow.session)
 
     def update_stock(self, producto_id: int, data: ProductoStockUpdate) -> ProductoRead:
-        """Actualiza solo el stock y la disponibilidad de un producto."""
+        """Actualiza el stock y la disponibilidad de un producto."""
         with ProductoUnitOfWork() as uow:
             repository = self._repo(uow.session)
             producto = repository.get_by_id(producto_id)
-            if producto is None:
+            if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
 
             producto.stock = data.stock
-            producto.disponible = data.stock > 0
+            if data.disponible is not None:
+                producto.disponible = data.disponible
+            else:
+                producto.disponible = data.stock > 0
             uow.session.add(producto)
             uow.session.flush()
             uow.session.refresh(producto)
@@ -110,7 +119,7 @@ class ProductoService:
         with ProductoUnitOfWork() as uow:
             repository = self._repo(uow.session)
             producto = repository.get_by_id(producto_id)
-            if producto is None:
+            if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
             producto.activo = False
             uow.session.add(producto)

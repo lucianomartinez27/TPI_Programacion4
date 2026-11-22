@@ -33,7 +33,8 @@ TRANSICIONES = {
 class PedidoService:
     """Lógica de negocio para la gestión de pedidos."""
 
-    uow = PedidoUnitOfWork
+    def __init__(self):
+        self.uow = PedidoUnitOfWork()
 
     def create_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoRead:
         """
@@ -54,9 +55,9 @@ class PedidoService:
 
             for item in data.items:
                 producto = uow.productos.get_by_id(item.producto_id)
-                if producto is None:
+                if producto is None or not producto.activo:
                     raise PedidoNoEncontrado(f"El producto {item.producto_id} no existe")
-                if not producto.activo or not producto.disponible:
+                if not producto.disponible:
                     raise ProductoNoDisponible(f"El producto {producto.nombre} no está disponible")
                 if producto.stock < item.cantidad:
                     raise StockInsuficiente(

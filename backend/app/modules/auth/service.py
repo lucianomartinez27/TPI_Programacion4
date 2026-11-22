@@ -20,14 +20,7 @@ class AuthService:
         """Registra un nuevo usuario."""
         try:
             user = self.usuario_service.create_user(user_in)
-            return UserRead(
-                id=user.id,
-                username=user.username,
-                email=user.email,
-                full_name=user.full_name,
-                role=user.role,
-                disabled=user.disabled,
-            )
+            return UserRead.model_validate(user)
         except UsuarioDuplicado as exc:
             raise UsuarioDuplicado(str(exc))
 
@@ -37,7 +30,7 @@ class AuthService:
         if user is None or not verify_password(password, user.hashed_password):
             raise ValueError("Credenciales incorrectas")
         if user.disabled:
-            raise ValueError("Cuenta desactivada")
+            raise ValueError("Cuenta de usuario desactivada")
 
         token = create_access_token(data={"sub": str(user.id)})
         return TokenResponse(access_token=token)

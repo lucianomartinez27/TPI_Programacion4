@@ -1,6 +1,6 @@
 """Router de endpoints para el módulo de pedidos."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import get_current_active_user, require_role
 from app.modules.pedidos.enums import EstadoPedido
@@ -51,7 +51,7 @@ def list_pedidos(
     service: PedidoService = Depends(get_service),
     current_user: Usuario = Depends(get_current_active_user),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(default=20, ge=1, le=100),
     estado: EstadoPedido | None = None,
 ):
     """

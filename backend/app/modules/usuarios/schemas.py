@@ -64,6 +64,7 @@ class UsuarioListRead(BaseModel):
     full_name: str
     role: str
     disabled: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True

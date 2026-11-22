@@ -1,6 +1,6 @@
 """Schemas Pydantic y excepciones de dominio para el módulo de categorías."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # --- Excepciones de dominio ---
@@ -18,14 +18,14 @@ class NombreDuplicado(Exception):
 class CategoriaCreate(BaseModel):
     """Schema para crear una categoría."""
 
-    nombre: str
+    nombre: str = Field(min_length=2, max_length=100)
     descripcion: str | None = None
 
 
 class CategoriaUpdate(BaseModel):
     """Schema para actualizar una categoría."""
 
-    nombre: str | None = None
+    nombre: str | None = Field(default=None, min_length=2, max_length=100)
     descripcion: str | None = None
     activo: bool | None = None
 

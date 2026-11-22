@@ -37,7 +37,7 @@ class PedidoCreate(BaseModel):
     forma_pago: FormaPago
     direccion_entrega: str = Field(min_length=5, max_length=200)
     notas: str | None = None
-    items: list[PedidoItemCreate]
+    items: list[PedidoItemCreate] = Field(min_length=1)
 
 
 class CambioEstado(BaseModel):

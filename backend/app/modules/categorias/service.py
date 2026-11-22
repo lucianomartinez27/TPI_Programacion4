@@ -46,7 +46,7 @@ class CategoriaService:
         with CategoriaUnitOfWork() as uow:
             repository = self._repo(uow.session)
             categoria = repository.get_by_id(categoria_id)
-            if categoria is None:
+            if categoria is None or not categoria.activo:
                 raise CategoriaNoEncontrada("Categoría no encontrada")
             return CategoriaRead.model_validate(categoria)
 
@@ -69,7 +69,7 @@ class CategoriaService:
         with CategoriaUnitOfWork() as uow:
             repository = self._repo(uow.session)
             categoria = repository.get_by_id(categoria_id)
-            if categoria is None:
+            if categoria is None or not categoria.activo:
                 raise CategoriaNoEncontrada("Categoría no encontrada")
 
             update_data = data.model_dump(exclude_unset=True)
@@ -85,26 +85,12 @@ class CategoriaService:
             return CategoriaRead.model_validate(categoria)
 
     def delete_categoria(self, categoria_id: int) -> None:
-        """Desactiva una categoría (baja lógica).
-
-        RN: No se puede desactivar si tiene productos activos asociados.
-        """
+        """Desactiva una categoría (baja lógica)."""
         with CategoriaUnitOfWork() as uow:
             repository = self._repo(uow.session)
             categoria = repository.get_by_id(categoria_id)
-            if categoria is None:
+            if categoria is None or not categoria.activo:
                 raise CategoriaNoEncontrada("Categoría no encontrada")
-
-            # Verificar que no tenga productos activos asociados
-            productos = uow.session.exec(
-                Producto.__table__.select().where(
-                    Producto.categoria_id == categoria_id, Producto.activo == True  # noqa: E712
-                )
-            ).all()
-            if productos:
-                raise CategoriaNoEncontrada(
-                    "No se puede desactivar una categoría con productos activos asociados"
-                )
 
             categoria.activo = False
             uow.session.add(categoria)

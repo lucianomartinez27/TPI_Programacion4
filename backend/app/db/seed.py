@@ -1,6 +1,6 @@
 """Seed idempotente: crea las tablas y carga datos iniciales si no existen."""
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.database import engine, create_all_tables
 from app.core.security import get_password_hash
@@ -18,7 +18,7 @@ def seed():
         try:
             # Admin por defecto
             admin = session.exec(
-                Usuario.__table__.select().where(Usuario.email == "admin@foodstore.com")
+                select(Usuario).where(Usuario.email == "admin@foodstore.com")
             ).first()
             if not admin:
                 admin = Usuario(
@@ -34,7 +34,7 @@ def seed():
 
             # Usuario de prueba
             user = session.exec(
-                Usuario.__table__.select().where(Usuario.email == "cliente@foodstore.com")
+                select(Usuario).where(Usuario.email == "cliente@foodstore.com")
             ).first()
             if not user:
                 user = Usuario(
@@ -57,7 +57,7 @@ def seed():
             cat_map = {}
             for nombre, desc in categorias.items():
                 cat = session.exec(
-                    Categoria.__table__.select().where(Categoria.nombre == nombre)
+                    select(Categoria).where(Categoria.nombre == nombre)
                 ).first()
                 if not cat:
                     cat = Categoria(nombre=nombre, descripcion=desc)
@@ -79,7 +79,7 @@ def seed():
             ]
             for nombre, desc, cat, precio, stock in productos_data:
                 prod = session.exec(
-                    Producto.__table__.select().where(Producto.nombre == nombre)
+                    select(Producto).where(Producto.nombre == nombre)
                 ).first()
                 if not prod:
                     prod = Producto(
@@ -96,3 +96,7 @@ def seed():
         except Exception:
             session.rollback()
             raise
+
+
+if __name__ == "__main__":
+    seed()

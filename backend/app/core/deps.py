@@ -43,19 +43,24 @@ def get_current_active_user(
 ):
     """Asegura que el usuario actual está activo (no deshabilitado)."""
     if current_user.disabled:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cuenta desactivada")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cuenta de usuario desactivada",
+        )
     return current_user
 
 
-def require_role(role: str):
-    """Devuelve una dependencia que exige un rol específico."""
+def require_role(role: str | list[str]):
+    """Devuelve una dependencia que exige uno o más roles específicos."""
+    allowed_roles = [role] if isinstance(role, str) else role
+
     def _require_role(
         current_user: Any = Depends(get_current_active_user),
     ):
-        if current_user.role != role:
+        if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Se requiere el rol '{role}'",
+                detail=f"Se requiere el rol '{', '.join(allowed_roles)}'",
             )
         return current_user
     return _require_role

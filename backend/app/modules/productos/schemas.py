@@ -23,25 +23,27 @@ class ProductoCreate(BaseModel):
     precio_base: float = Field(ge=0)
     imagen_url: str | None = None
     stock: int = Field(ge=0, default=0)
+    disponible: bool = True
 
 
 class ProductoUpdate(BaseModel):
     """Schema para actualizar un producto."""
 
     categoria_id: int | None = None
-    nombre: str | None = None
+    nombre: str | None = Field(default=None, min_length=2, max_length=200)
     descripcion: str | None = None
-    precio_base: float | None = None
+    precio_base: float | None = Field(default=None, ge=0)
     imagen_url: str | None = None
-    stock: int | None = None
+    stock: int | None = Field(default=None, ge=0)
     disponible: bool | None = None
     activo: bool | None = None
 
 
 class ProductoStockUpdate(BaseModel):
-    """Schema para actualizar solo el stock de un producto."""
+    """Schema para actualizar stock y disponibilidad de un producto."""
 
     stock: int = Field(ge=0)
+    disponible: bool | None = None
 
 
 class ProductoRead(BaseModel):

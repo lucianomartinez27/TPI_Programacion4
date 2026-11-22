@@ -1,6 +1,6 @@
 """Repository para las entidades Pedido y DetallePedido."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlmodel import Session, select, func
@@ -26,7 +26,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         stmt = stmt.order_by(Pedido.created_at.desc())
 
         total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = stmt.offset(skip).limit(limit).all()
+        results = self.session.exec(stmt.offset(skip).limit(limit)).all()
         return total, results
 
     def get_all_admin(
@@ -39,7 +39,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         stmt = stmt.order_by(Pedido.created_at.desc())
 
         total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = stmt.offset(skip).limit(limit).all()
+        results = self.session.exec(stmt.offset(skip).limit(limit)).all()
         return total, results
 
     def get_counts_by_state(self) -> dict[EstadoPedido, int]:
@@ -50,8 +50,8 @@ class PedidoRepository(BaseRepository[Pedido]):
 
     def get_today_count(self) -> int:
         """Devuelve la cantidad de pedidos creados hoy."""
-        today = datetime.now().date()
-        stmt = select(func.count()).where(Pedido.created_at >= datetime.combine(today, datetime.min.time()))
+        start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        stmt = select(func.count()).where(Pedido.created_at >= start_of_day)
         return self.session.exec(stmt).one()
 
     def get_delivered_revenue(self) -> float:

@@ -1,6 +1,6 @@
 """Router de endpoints para el módulo de productos."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import require_role
 from app.modules.productos.schemas import (
@@ -25,7 +25,7 @@ def get_service() -> ProductoService:
 def list_productos(
     service: ProductoService = Depends(get_service),
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(default=20, ge=1, le=100),
     search: str | None = None,
     categoria_id: int | None = None,
     disponible: bool | None = None,
@@ -56,7 +56,10 @@ def create_producto(
     admin_user: Usuario = Depends(require_role("admin")),
 ):
     """Crea un nuevo producto. Solo admin."""
-    return service.create_producto(data)
+    try:
+        return service.create_producto(data)
+    except ProductoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.put("/{producto_id}", response_model=ProductoRead)

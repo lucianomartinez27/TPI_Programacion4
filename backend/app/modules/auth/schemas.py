@@ -1,5 +1,7 @@
 """Schemas Pydantic para el módulo de autenticación."""
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -19,6 +21,7 @@ class UserRead(BaseModel):
     full_name: str
     role: str
     disabled: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True
