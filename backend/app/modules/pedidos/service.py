@@ -1,7 +1,9 @@
 """Service para el módulo de pedidos con máquina de estados y reglas de negocio."""
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
 
+from app.core.database import session_factory
 from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.models import DetallePedido, Pedido
 from app.modules.pedidos.schemas import (
@@ -19,7 +21,6 @@ from app.modules.pedidos.schemas import (
     TransicionInvalida,
 )
 from app.modules.pedidos.unit_of_work import PedidoUnitOfWork
-from app.modules.productos.models import Producto
 
 # Mapa de transiciones válidas de la máquina de estados
 TRANSICIONES = {
@@ -33,8 +34,8 @@ TRANSICIONES = {
 class PedidoService:
     """Lógica de negocio para la gestión de pedidos."""
 
-    def __init__(self):
-        self.uow = PedidoUnitOfWork()
+    def __init__(self, uow: PedidoUnitOfWork | None = None):
+        self.uow = uow or PedidoUnitOfWork(session_factory)
 
     def create_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoRead:
         """
@@ -50,7 +51,7 @@ class PedidoService:
 
         with self.uow as uow:
             # Validar y preparar líneas
-            lineas = []
+            lineas: list[DetallePedido] = []
             total = 0.0
 
             for item in data.items:
@@ -65,14 +66,15 @@ class PedidoService:
                         f"(disponible: {producto.stock}, solicitado: {item.cantidad})"
                     )
 
-                # Descuento de stock
+                # Descuento de stock a través del repositorio
                 producto.stock -= item.cantidad
-                uow.session.add(producto)
+                uow.productos.save(producto)
 
                 subtotal = producto.precio_base * item.cantidad
                 total += subtotal
 
                 detalle = DetallePedido(
+                    pedido_id=0,
                     producto_id=producto.id,
                     cantidad=item.cantidad,
                     nombre_producto=producto.nombre,
@@ -81,7 +83,7 @@ class PedidoService:
                 )
                 lineas.append(detalle)
 
-            # Crear pedido
+            # Crear pedido (el repositorio hace flush para obtener pedido.id)
             pedido = Pedido(
                 usuario_id=usuario_id,
                 forma_pago=data.forma_pago,
@@ -89,19 +91,14 @@ class PedidoService:
                 notas=data.notas,
                 total=total,
             )
-            uow.session.add(pedido)
-            uow.session.flush()
-            uow.session.refresh(pedido)
+            uow.pedidos.add(pedido)
 
-            # Crear líneas con el pedido_id
+            # Crear líneas con el pedido_id obtenido tras el flush
             for detalle in lineas:
                 detalle.pedido_id = pedido.id
-                uow.session.add(detalle)
+                uow.detalle_pedidos.add(detalle)
 
-            uow.session.flush()
-            uow.session.refresh(pedido)
-
-            return self._build_pedido_read(pedido, uow.session)
+            return self._build_pedido_read(pedido, lineas)
 
     def get_pedido(self, pedido_id: int) -> PedidoRead:
         """Obtiene un pedido con sus líneas."""
@@ -109,7 +106,8 @@ class PedidoService:
             pedido = uow.pedidos.get_by_id(pedido_id)
             if pedido is None:
                 raise PedidoNoEncontrado("Pedido no encontrado")
-            return self._build_pedido_read(pedido, uow.session)
+            lineas = uow.detalle_pedidos.get_by_pedido(pedido.id)
+            return self._build_pedido_read(pedido, lineas)
 
     def list_pedidos(
         self, usuario_id: int, role: str, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
@@ -125,7 +123,10 @@ class PedidoService:
                 total, pedidos = uow.pedidos.get_by_user(
                     usuario_id, skip=skip, limit=limit, estado=estado
                 )
-            items = [self._build_pedido_read(p, uow.session) for p in pedidos]
+            items = [
+                self._build_pedido_read(p, uow.detalle_pedidos.get_by_pedido(p.id))
+                for p in pedidos
+            ]
             return PedidosPaginados(total=total, items=items)
 
     def get_resumen(self) -> ResumenPedidos:
@@ -163,15 +164,13 @@ class PedidoService:
                 producto = uow.productos.get_by_id(linea.producto_id)
                 if producto:
                     producto.stock += linea.cantidad
-                    uow.session.add(producto)
+                    uow.productos.save(producto)
 
             pedido.estado = EstadoPedido.CANCELADO
             pedido.updated_at = datetime.now(timezone.utc)
-            uow.session.add(pedido)
-            uow.session.flush()
-            uow.session.refresh(pedido)
+            uow.pedidos.save(pedido)
 
-            return self._build_pedido_read(pedido, uow.session)
+            return self._build_pedido_read(pedido, lineas)
 
     def update_estado_admin(self, pedido_id: int, data: CambioEstado) -> PedidoRead:
         """
@@ -191,29 +190,24 @@ class PedidoService:
                     f"No se puede cambiar de {pedido.estado.value} a {data.estado.value}"
                 )
 
+            lineas = uow.detalle_pedidos.get_by_pedido(pedido_id)
+
             # Cancelar: restituir stock (RN-03)
             if data.estado == EstadoPedido.CANCELADO:
-                lineas = uow.detalle_pedidos.get_by_pedido(pedido_id)
                 for linea in lineas:
                     producto = uow.productos.get_by_id(linea.producto_id)
                     if producto:
                         producto.stock += linea.cantidad
-                        uow.session.add(producto)
+                        uow.productos.save(producto)
 
             pedido.estado = data.estado
             pedido.updated_at = datetime.now(timezone.utc)
-            uow.session.add(pedido)
-            uow.session.flush()
-            uow.session.refresh(pedido)
+            uow.pedidos.save(pedido)
 
-            return self._build_pedido_read(pedido, uow.session)
+            return self._build_pedido_read(pedido, lineas)
 
-    def _build_pedido_read(self, pedido: "Pedido", session) -> PedidoRead:
+    def _build_pedido_read(self, pedido: Pedido, lineas: Sequence[DetallePedido]) -> PedidoRead:
         """Construye un PedidoRead con sus líneas."""
-        from app.modules.pedidos.repository import DetallePedidoRepository
-
-        detalle_repo = DetallePedidoRepository(session)
-        lineas = detalle_repo.get_by_pedido(pedido.id)
         return PedidoRead(
             id=pedido.id,
             usuario_id=pedido.usuario_id,

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.productos.schemas import (
     ProductoCreate,
@@ -12,13 +13,14 @@ from app.modules.productos.schemas import (
     ProductoUpdate,
 )
 from app.modules.productos.service import ProductoService
+from app.modules.productos.unit_of_work import ProductoUnitOfWork
 from app.modules.usuarios.models import Usuario
 
 router = APIRouter(tags=["productos"])
 
 
 def get_service() -> ProductoService:
-    return ProductoService()
+    return ProductoService(ProductoUnitOfWork(session_factory))
 
 
 @router.get("/", response_model=ProductosPaginados)

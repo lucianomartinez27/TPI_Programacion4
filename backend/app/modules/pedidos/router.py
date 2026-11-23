@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.database import session_factory
 from app.core.deps import get_current_active_user, require_role
 from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.schemas import (
@@ -18,13 +19,14 @@ from app.modules.pedidos.schemas import (
     TransicionInvalida,
 )
 from app.modules.pedidos.service import PedidoService
+from app.modules.pedidos.unit_of_work import PedidoUnitOfWork
 from app.modules.usuarios.models import Usuario
 
 router = APIRouter(tags=["pedidos"])
 
 
 def get_service() -> PedidoService:
-    return PedidoService()
+    return PedidoService(PedidoUnitOfWork(session_factory))
 
 
 @router.post("/", response_model=PedidoRead, status_code=status.HTTP_201_CREATED)

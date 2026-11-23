@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.usuarios.models import Usuario
 from app.modules.usuarios.schemas import (
@@ -10,12 +11,13 @@ from app.modules.usuarios.schemas import (
     UsuarioNoEncontrado,
 )
 from app.modules.usuarios.service import UsuarioService
+from app.modules.usuarios.unit_of_work import UsuarioUnitOfWork
 
 router = APIRouter(tags=["usuarios"])
 
 
 def get_service() -> UsuarioService:
-    return UsuarioService()
+    return UsuarioService(UsuarioUnitOfWork(session_factory))
 
 
 @router.get("/", response_model=list[UsuarioListRead])

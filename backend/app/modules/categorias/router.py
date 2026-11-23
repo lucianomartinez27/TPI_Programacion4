@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.usuarios.models import Usuario
 from app.modules.categorias.schemas import (
@@ -12,12 +13,13 @@ from app.modules.categorias.schemas import (
     NombreDuplicado,
 )
 from app.modules.categorias.service import CategoriaService
+from app.modules.categorias.unit_of_work import CategoriaUnitOfWork
 
 router = APIRouter(tags=["categorias"])
 
 
 def get_service() -> CategoriaService:
-    return CategoriaService()
+    return CategoriaService(CategoriaUnitOfWork(session_factory))
 
 
 @router.get("/", response_model=list[CategoriaRead])

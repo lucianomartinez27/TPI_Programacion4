@@ -1,9 +1,9 @@
 """Unit of Work base que gestiona transacciones con el patrón context manager."""
 
-from contextlib import contextmanager
+from collections.abc import Callable
 from sqlmodel import Session
 
-from app.core.database import engine
+from app.core.database import session_factory as default_session_factory
 
 
 class UnitOfWork:
@@ -12,18 +12,20 @@ class UnitOfWork:
     commit, rollback y close en __exit__.
     """
 
-    def __init__(self):
+    def __init__(self, session_factory: Callable[[], Session] = default_session_factory):
+        self.session_factory = session_factory
         self.session: Session | None = None
 
     def __enter__(self) -> "UnitOfWork":
-        self.session = Session(engine)
+        self.session = self.session_factory()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            self.session.rollback()
-        else:
-            self.session.commit()
-        self.session.close()
-        self.session = None
-        return False
+        try:
+            if exc_type:
+                self.session.rollback()
+            else:
+                self.session.commit()
+        finally:
+            self.session.close()
+            self.session = None

@@ -1,6 +1,6 @@
 """Repository genérico base para operaciones CRUD con SQLModel."""
 
-from typing import Generic, TypeVar, Sequence
+from typing import Any, Generic, Sequence, TypeVar
 
 from sqlmodel import Session, SQLModel, select
 
@@ -14,6 +14,14 @@ class BaseRepository(Generic[ModelType]):
         self.session = session
         self.model = model
 
+    def create(self, data: Any) -> ModelType:
+        """Crea una entidad a partir de un esquema de entrada o modelo y ejecuta flush."""
+        obj = data if isinstance(data, self.model) else self.model.model_validate(data)
+        self.session.add(obj)
+        self.session.flush()
+        self.session.refresh(obj)
+        return obj
+
     def get_by_id(self, id: int) -> ModelType | None:
         """Obtiene una entidad por su ID."""
         return self.session.get(self.model, id)
@@ -24,7 +32,14 @@ class BaseRepository(Generic[ModelType]):
         return self.session.exec(stmt).all()
 
     def add(self, obj: ModelType) -> ModelType:
-        """Crea una nueva entidad."""
+        """Agrega una nueva entidad a la sesión y ejecuta flush."""
+        self.session.add(obj)
+        self.session.flush()
+        self.session.refresh(obj)
+        return obj
+
+    def save(self, obj: ModelType) -> ModelType:
+        """Guarda los cambios de una entidad en la sesión y ejecuta flush."""
         self.session.add(obj)
         self.session.flush()
         self.session.refresh(obj)
@@ -41,6 +56,11 @@ class BaseRepository(Generic[ModelType]):
         self.session.refresh(obj)
         return obj
 
+    def delete(self, obj: ModelType) -> None:
+        """Elimina una entidad de la sesión."""
+        self.session.delete(obj)
+        self.session.flush()
+
     def hard_delete(self, id: int) -> bool:
         """Elimina una entidad por su ID (baja física).
 
@@ -49,8 +69,7 @@ class BaseRepository(Generic[ModelType]):
         obj = self.get_by_id(id)
         if obj is None:
             return False
-        self.session.delete(obj)
-        self.session.flush()
+        self.delete(obj)
         return True
 
     def count(self) -> int:

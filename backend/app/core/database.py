@@ -12,6 +12,11 @@ def create_all_tables():
     SQLModel.metadata.create_all(engine)
 
 
+def session_factory() -> Session:
+    """Crea y devuelve una nueva sesión de base de datos para el Unit of Work."""
+    return Session(engine)
+
+
 def get_session():
     """Dependencia inyectable que devuelve una sesión de base de datos."""
     with Session(engine) as session:

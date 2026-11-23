@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.config import settings
+from app.core.database import session_factory
 from app.core.deps import get_current_active_user
 from app.modules.auth.schemas import TokenResponse, UserRead
 from app.modules.auth.service import AuthService
@@ -16,12 +17,13 @@ from app.modules.usuarios.schemas import (
     UsuarioNoEncontrado,
     UsuarioUpdate,
 )
+from app.modules.usuarios.unit_of_work import UsuarioUnitOfWork
 
 router = APIRouter(tags=["auth"])
 
 
 def get_service() -> AuthService:
-    return AuthService()
+    return AuthService(UsuarioUnitOfWork(session_factory))
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -89,7 +91,7 @@ def update_profile(
 ):
     """Actualiza el perfil del usuario autenticado."""
     try:
-        return service.usuario_service.update_profile(current_user.id, data)
+        return service.update_profile(current_user.id, data)
     except UsuarioDuplicado as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -110,7 +112,7 @@ def change_password(
 ):
     """Cambia la contraseña del usuario autenticado."""
     try:
-        service.usuario_service.change_password(current_user.id, data)
+        service.change_password(current_user.id, data)
     except UsuarioNoEncontrado as exc:
         if "incorrecta" in str(exc):
             raise HTTPException(
