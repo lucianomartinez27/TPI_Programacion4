@@ -1,37 +1,31 @@
 import type { AxiosError } from 'axios';
-import { api } from '@/shared/api/axiosInstance';
+import { axiosInstance } from './axiosInstance';
 import { useAuthStore } from '@/store/authStore';
 
-let initialized = false;
+const RUTAS_AUTH_EXCLUIDAS = ['/auth/token', '/auth/me'];
 
-/**
- * Registra los interceptores de respuesta de Axios una sola vez desde main.tsx,
- * evitando importaciones circulares entre axiosInstance y authStore.
- */
-export function setupInterceptors() {
-  if (initialized) return;
-  initialized = true;
+let interceptorRegistrado = false;
 
-  api.interceptors.response.use(
+export function setupInterceptors(): void {
+  if (interceptorRegistrado) return;
+  interceptorRegistrado = true;
+
+  axiosInstance.interceptors.response.use(
     (response) => response,
-    (error: AxiosError<{ detail?: string }>) => {
+    (error: AxiosError<{ detail?: unknown }>) => {
       const status = error.response?.status;
       const url = error.config?.url ?? '';
       const detail = error.response?.data?.detail;
+      const esRutaAuth = RUTAS_AUTH_EXCLUIDAS.some((ruta) =>
+        url.includes(ruta),
+      );
 
-      const isAuthCheckOrLogin =
-        url.includes('/auth/token') || url.includes('/auth/me') || url.includes('/auth/logout');
-
-      const is401OutsideAuth = status === 401 && !isAuthCheckOrLogin;
-      const isDeactivated =
+      const sesionVencida = status === 401 && !esRutaAuth;
+      const cuentaDesactivada =
         status === 400 && detail === 'Cuenta de usuario desactivada';
 
-      if (is401OutsideAuth || isDeactivated) {
-        if (isDeactivated) {
-          void useAuthStore.getState().logout();
-        } else {
-          useAuthStore.getState().clearSession();
-        }
+      if (sesionVencida || cuentaDesactivada) {
+        useAuthStore.getState().clearSession();
       }
 
       return Promise.reject(error);

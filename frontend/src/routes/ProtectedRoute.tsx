@@ -1,36 +1,32 @@
-import type { ReactNode } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import type { Role } from '@/shared/api/types';
+import type { Role } from '@/features/auth/types/auth.types';
 import { useAuthStore } from '@/store/authStore';
 
 interface ProtectedRouteProps {
-  children?: ReactNode;
   allowedRoles?: Role[];
 }
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const user = useAuthStore((s) => s.user);
-  const loading = useAuthStore((s) => s.loading);
+export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
+  const usuario = useAuthStore((s) => s.usuario);
+  const cargando = useAuthStore((s) => s.cargando);
   const location = useLocation();
 
-  if (loading && !user) {
+  if (cargando) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-brand border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Verificando sesión...</p>
-        </div>
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-stone-600">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 border-t-transparent" />
+        <p className="text-sm font-medium">Verificando sesión...</p>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!usuario) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(usuario.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return children ? <>{children}</> : <Outlet />;
+  return <Outlet />;
 }

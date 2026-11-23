@@ -1,55 +1,45 @@
 import axios from 'axios';
 
-interface ApiErrorPayload {
-  detail?: string | Array<{ msg?: string }>;
-}
-
-/**
- * Convierte errores de Axios / red / validación FastAPI en mensajes legibles.
- */
 export function handleApiError(error: unknown): string {
-  if (axios.isAxiosError<ApiErrorPayload>(error)) {
-    if (error.code === 'ECONNABORTED') {
-      return 'La solicitud tardó demasiado tiempo. Intentá nuevamente.';
+  if (!axios.isAxiosError(error)) {
+    if (error instanceof Error && error.message) {
+      return error.message;
     }
-    if (!error.response) {
-      return 'No se pudo conectar con el servidor. Verificá tu conexión.';
-    }
-
-    const { status, data } = error.response;
-    const detail = data?.detail;
-
-    if (typeof detail === 'string' && detail.trim().length > 0) {
-      return detail;
-    }
-    if (Array.isArray(detail)) {
-      return detail
-        .map((d) => d.msg ?? String(d))
-        .join(', ');
-    }
-
-    switch (status) {
-      case 401:
-        return 'Tu sesión venció o las credenciales son inválidas.';
-      case 403:
-        return 'No tenés permisos para realizar esta acción.';
-      case 404:
-        return 'El recurso solicitado no fue encontrado.';
-      case 409:
-        return 'Ya existe un registro con los mismos datos.';
-      case 422:
-        return 'Los datos enviados no son válidos.';
-      default:
-        if (status >= 500) {
-          return 'Error interno del servidor. Intentá más tarde.';
-        }
-        return 'No se pudo completar la solicitud.';
-    }
+    return 'Ocurrió un error inesperado.';
   }
 
-  if (error instanceof Error) {
-    return error.message;
+  if (error.code === 'ECONNABORTED') {
+    return 'El servidor tardó demasiado en responder.';
   }
 
-  return 'Ha ocurrido un error inesperado.';
+  if (!error.response) {
+    return 'No se pudo conectar con el servidor.';
+  }
+
+  const { status, data } = error.response;
+  const detail = (data as { detail?: unknown } | undefined)?.detail;
+
+  if (status === 401) {
+    return typeof detail === 'string'
+      ? detail
+      : 'La sesión venció. Es necesario iniciar sesión de nuevo.';
+  }
+
+  if (status === 403) {
+    return 'No tenés permisos para realizar esta acción.';
+  }
+
+  if (status === 422) {
+    return 'Los datos enviados no son válidos. Revisá los campos.';
+  }
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+
+  if (status < 500) {
+    return 'No se pudo completar la operación.';
+  }
+
+  return 'Error interno del servidor. Intentá nuevamente más tarde.';
 }

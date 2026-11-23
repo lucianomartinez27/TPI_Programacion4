@@ -1,27 +1,27 @@
 import type { ReactNode } from 'react';
-import { Package } from 'lucide-react';
+import { PackageOpen } from 'lucide-react';
 
 interface EstadoVacioProps {
-  title: string;
-  description?: string;
-  icon?: ReactNode;
-  action?: ReactNode;
+  titulo: string;
+  descripcion?: string;
+  accion?: ReactNode;
 }
 
 export function EstadoVacio({
-  title,
-  description,
-  icon,
-  action,
+  titulo,
+  descripcion,
+  accion,
 }: EstadoVacioProps) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 text-center py-12 px-6">
-      <div className="flex justify-center mb-3 text-gray-300">
-        {icon ?? <Package className="h-12 w-12" />}
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-14 text-center">
+      <div className="mb-4 rounded-full bg-orange-50 p-4 text-orange-600">
+        <PackageOpen className="h-8 w-8" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-700">{title}</h3>
-      {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
-      {action && <div className="mt-5 flex justify-center">{action}</div>}
+      <h3 className="text-lg font-semibold text-stone-900">{titulo}</h3>
+      {descripcion && (
+        <p className="mt-1 max-w-md text-sm text-stone-500">{descripcion}</p>
+      )}
+      {accion && <div className="mt-5">{accion}</div>}
     </div>
   );
 }

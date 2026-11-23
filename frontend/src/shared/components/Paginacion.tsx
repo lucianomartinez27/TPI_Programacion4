@@ -2,43 +2,48 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 
 interface PaginacionProps {
-  page: number;
-  totalPages: number;
-  onPageChange: (nextPage: number) => void;
-  className?: string;
+  paginaActual: number;
+  totalItems: number;
+  porPagina: number;
+  onCambiarPagina: (nuevaPagina: number) => void;
 }
 
 export function Paginacion({
-  page,
-  totalPages,
-  onPageChange,
-  className = '',
+  paginaActual,
+  totalItems,
+  porPagina,
+  onCambiarPagina,
 }: PaginacionProps) {
-  if (totalPages <= 1) return null;
+  const totalPaginas = Math.max(1, Math.ceil(totalItems / porPagina));
+  if (totalPaginas <= 1) return null;
 
   return (
-    <div className={`flex items-center justify-center gap-3 ${className}`}>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onPageChange(Math.max(0, page - 1))}
-        disabled={page === 0}
-      >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        Anterior
-      </Button>
-      <span className="text-sm text-gray-600">
-        Página {page + 1} de {totalPages}
-      </span>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-        disabled={page >= totalPages - 1}
-      >
-        Siguiente
-        <ChevronRight className="h-4 w-4 ml-1" />
-      </Button>
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 pt-4">
+      <p className="text-sm text-stone-600">
+        Mostrando página <span className="font-semibold">{paginaActual + 1}</span>{' '}
+        de <span className="font-semibold">{totalPaginas}</span> ({totalItems}{' '}
+        resultados)
+      </p>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={paginaActual === 0}
+          onClick={() => onCambiarPagina(paginaActual - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Anterior
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={paginaActual + 1 >= totalPaginas}
+          onClick={() => onCambiarPagina(paginaActual + 1)}
+        >
+          Siguiente
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

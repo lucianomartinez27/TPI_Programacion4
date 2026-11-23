@@ -1,21 +1,15 @@
-import type { ReactNode } from 'react';
-import { Navbar } from '@/shared/layout/Navbar';
+import { Outlet } from 'react-router-dom';
+import { Navbar } from './Navbar';
 
-interface MainLayoutProps {
-  children: ReactNode;
-}
-
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="flex min-h-screen flex-col bg-stone-50">
       <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        <Outlet />
       </main>
-      <footer className="border-t border-gray-200 bg-white py-6 mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500">
-          Food Store — Trabajo Práctico Integrador, Programación 4
-        </div>
+      <footer className="border-t border-stone-200 bg-white py-5 text-center text-xs text-stone-500">
+        Food Store · Trabajo Práctico Integrador · Programación 4 (UTN)
       </footer>
     </div>
   );

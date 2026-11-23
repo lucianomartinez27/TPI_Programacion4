@@ -1,173 +1,157 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
-import { Package } from 'lucide-react';
-import { MainLayout } from '@/shared/layout/MainLayout';
-import { Input } from '@/shared/ui/Input';
+import { UtensilsCrossed } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
+import { handleApiError } from '@/shared/api/handleApiError';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
-import { useLoginMutation } from '@/features/auth/hooks/useAuthMutations';
-import { handleApiError } from '@/shared/api/handleApiError';
+import { Input } from '@/shared/ui/Input';
 
 interface LocationState {
-  from?: { pathname?: string };
-  message?: string;
+  from?: { pathname: string };
 }
-
-interface LoginFormValues {
-  username: string;
-  password: string;
-}
-
-const defaultValues: LoginFormValues = {
-  username: '',
-  password: '',
-};
 
 export function LoginPage() {
-  const [error, setError] = useState('');
-  const loginMutation = useLoginMutation();
+  const login = useAuthStore((s) => s.login);
+  const showNotification = useNotificationStore((s) => s.showNotification);
   const navigate = useNavigate();
   const location = useLocation();
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const state = location.state as LocationState | null;
-  const from = state?.from?.pathname || '/';
-  const successMessage = state?.message;
+  const from = state?.from?.pathname;
 
   const form = useForm({
-    defaultValues,
+    defaultValues: {
+      username: '',
+      password: '',
+    },
     onSubmit: async ({ value }) => {
-      setError('');
+      setServerError(null);
       try {
-        await loginMutation.mutateAsync({
-          username: value.username.trim(),
-          password: value.password,
-        });
-        navigate(from, { replace: true });
-      } catch (err: unknown) {
-        setError(handleApiError(err));
+        const usuario = await login(value.username.trim(), value.password);
+        showNotification(`¡Bienvenido, ${usuario.full_name}!`, 'success');
+        if (from && from !== '/login') {
+          navigate(from, { replace: true });
+        } else {
+          navigate(usuario.role === 'admin' ? '/admin/resumen' : '/', {
+            replace: true,
+          });
+        }
+      } catch (error) {
+        setServerError(handleApiError(error));
       }
     },
   });
 
   return (
-    <MainLayout>
-      <div className="flex items-center justify-center min-h-[70vh]">
-        <Card className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-3">
-              <div className="bg-orange-100 p-3 rounded-full">
-                <Package className="h-8 w-8 text-brand" />
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900">Iniciar sesión</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Accedé a tu cuenta para hacer pedidos
-            </p>
-          </div>
-
-          <form
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void form.handleSubmit();
-            }}
-            className="space-y-4"
-          >
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-2">
-                {successMessage}
-              </div>
-            )}
-            {error && (
-              <div
-                role="alert"
-                className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2"
-              >
-                {error}
-              </div>
-            )}
-
-            <form.Field
-              name="username"
-              validators={{
-                onChange: ({ value }) =>
-                  value.trim().length === 0 ? 'Ingresá tu usuario' : undefined,
-                onBlur: ({ value }) =>
-                  value.trim().length === 0 ? 'Ingresá tu usuario' : undefined,
-              }}
-            >
-              {(field) => {
-                const fieldError = field.state.meta.errors
-                  .filter(Boolean)
-                  .map(String)
-                  .join(', ');
-                return (
-                  <Input
-                    label="Usuario"
-                    name={field.name}
-                    type="text"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    error={fieldError || undefined}
-                    autoComplete="username"
-                  />
-                );
-              }}
-            </form.Field>
-
-            <form.Field
-              name="password"
-              validators={{
-                onChange: ({ value }) =>
-                  value.length === 0 ? 'Ingresá tu contraseña' : undefined,
-                onBlur: ({ value }) =>
-                  value.length === 0 ? 'Ingresá tu contraseña' : undefined,
-              }}
-            >
-              {(field) => {
-                const fieldError = field.state.meta.errors
-                  .filter(Boolean)
-                  .map(String)
-                  .join(', ');
-                return (
-                  <Input
-                    label="Contraseña"
-                    name={field.name}
-                    type="password"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    error={fieldError || undefined}
-                    autoComplete="current-password"
-                  />
-                );
-              }}
-            </form.Field>
-
-            <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
-              {([canSubmit, isSubmitting]) => (
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!canSubmit}
-                  loading={isSubmitting || loginMutation.isPending}
-                >
-                  Iniciar sesión
-                </Button>
-              )}
-            </form.Subscribe>
-          </form>
-
-          <p className="text-center text-sm text-gray-500 mt-4">
-            ¿No tenés cuenta?{' '}
-            <Link to="/register" className="text-brand hover:underline font-medium">
-              Registrarse
-            </Link>
-          </p>
-        </Card>
+    <div className="mx-auto flex max-w-md flex-col justify-center py-8">
+      <div className="mb-6 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-sm">
+          <UtensilsCrossed className="h-6 w-6" />
+        </div>
+        <h1 className="text-2xl font-bold text-stone-900">Iniciar sesión</h1>
+        <p className="mt-1 text-sm text-stone-500">
+          Ingresá con tu cuenta para hacer pedidos o gestionar la tienda.
+        </p>
       </div>
-    </MainLayout>
+
+      <Card className="p-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="space-y-4"
+        >
+          {serverError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700"
+            >
+              {serverError}
+            </div>
+          )}
+
+          <form.Field
+            name="username"
+            validators={{
+              onChange: ({ value }) =>
+                !value.trim() ? 'El nombre de usuario es obligatorio.' : undefined,
+            }}
+          >
+            {(field) => (
+              <Input
+                label="Usuario"
+                name={field.name}
+                placeholder="ej. admin o tu_usuario"
+                autoComplete="username"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                error={
+                  field.state.meta.errors.length > 0
+                    ? String(field.state.meta.errors[0])
+                    : undefined
+                }
+              />
+            )}
+          </form.Field>
+
+          <form.Field
+            name="password"
+            validators={{
+              onChange: ({ value }) =>
+                !value ? 'La contraseña es obligatoria.' : undefined,
+            }}
+          >
+            {(field) => (
+              <Input
+                label="Contraseña"
+                name={field.name}
+                type="password"
+                placeholder="••••••••"
+                autoComplete="current-password"
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                error={
+                  field.state.meta.errors.length > 0
+                    ? String(field.state.meta.errors[0])
+                    : undefined
+                }
+              />
+            )}
+          </form.Field>
+
+          <form.Subscribe
+            selector={(s) => [s.canSubmit, s.isSubmitting] as const}
+          >
+            {([canSubmit, isSubmitting]) => (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!canSubmit}
+                isLoading={isSubmitting}
+              >
+                Ingresar
+              </Button>
+            )}
+          </form.Subscribe>
+        </form>
+
+        <p className="mt-5 text-center text-sm text-stone-600">
+          ¿Todavía no tenés cuenta?{' '}
+          <Link
+            to="/register"
+            className="font-semibold text-orange-600 hover:text-orange-700"
+          >
+            Registrate aquí
+          </Link>
+        </p>
+      </Card>
+    </div>
   );
 }
