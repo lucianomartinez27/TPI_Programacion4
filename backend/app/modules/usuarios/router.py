@@ -1,9 +1,7 @@
 """Router de endpoints para el módulo de usuarios (admin)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
 
-from app.core.database import get_session
 from app.core.deps import require_role
 from app.modules.usuarios.models import Usuario
 from app.modules.usuarios.schemas import (
@@ -16,8 +14,8 @@ from app.modules.usuarios.service import UsuarioService
 router = APIRouter(tags=["usuarios"])
 
 
-def get_service(session: Session = Depends(get_session)) -> UsuarioService:
-    return UsuarioService(session)
+def get_service() -> UsuarioService:
+    return UsuarioService()
 
 
 @router.get("/", response_model=list[UsuarioListRead])

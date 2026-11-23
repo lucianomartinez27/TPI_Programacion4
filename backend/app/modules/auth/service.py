@@ -1,7 +1,5 @@
 """Service para el módulo de autenticación."""
 
-from sqlmodel import Session
-
 from app.core.security import create_access_token, verify_password
 from app.modules.auth.schemas import TokenResponse, UserRead
 from app.modules.usuarios.models import Usuario
@@ -12,9 +10,8 @@ from app.modules.usuarios.service import UsuarioService
 class AuthService:
     """Lógica de negocio para autenticación."""
 
-    def __init__(self, session: Session):
-        self.session = session
-        self.usuario_service = UsuarioService(session)
+    def __init__(self):
+        self.usuario_service = UsuarioService()
 
     def register(self, user_in: UsuarioCreate) -> UserRead:
         """Registra un nuevo usuario."""

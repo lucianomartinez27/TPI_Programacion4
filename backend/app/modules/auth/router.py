@@ -3,10 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session
 
 from app.core.config import settings
-from app.core.database import get_session
 from app.core.deps import get_current_active_user
 from app.modules.auth.schemas import TokenResponse, UserRead
 from app.modules.auth.service import AuthService
@@ -22,8 +20,8 @@ from app.modules.usuarios.schemas import (
 router = APIRouter(tags=["auth"])
 
 
-def get_service(session: Session = Depends(get_session)) -> AuthService:
-    return AuthService(session)
+def get_service() -> AuthService:
+    return AuthService()
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
