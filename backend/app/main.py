@@ -45,8 +45,8 @@ app.add_middleware(
 )
 
 
-@app.get("/health")
-def health():
+@app.get("/health", response_model=dict[str, str])
+def health() -> dict[str, str]:
     """Endpoint de salud para verificar que el servicio está activo."""
     return {"status": "ok"}
 

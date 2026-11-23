@@ -1,19 +1,34 @@
-"""Schemas Pydantic para el módulo de autenticación."""
+"""Schemas SQLModel para el módulo de autenticación."""
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import ConfigDict
+from sqlmodel import SQLModel
 
 
-class TokenResponse(BaseModel):
-    """Respuesta con el token JWT."""
+class TokenResponse(SQLModel):
+    """Respuesta interna con el token JWT."""
 
     access_token: str
     token_type: str = "bearer"
 
 
-class UserRead(BaseModel):
-    """Schema de lectura del usuario autenticado."""
+class LoginMessage(SQLModel):
+    """Respuesta pública del login (el JWT viaja en cookie HttpOnly)."""
+
+    message: str
+
+
+class LogoutMessage(SQLModel):
+    """Respuesta del cierre de sesión."""
+
+    detail: str
+
+
+class UserRead(SQLModel):
+    """Schema de lectura del usuario autenticado (sin contraseña)."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     username: str
@@ -22,6 +37,3 @@ class UserRead(BaseModel):
     role: str
     disabled: bool
     created_at: datetime
-
-    class Config:
-        from_attributes = True

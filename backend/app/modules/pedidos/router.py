@@ -9,6 +9,7 @@ from app.modules.pedidos.schemas import (
     CambioEstado,
     PedidoAjeno,
     PedidoCreate,
+    PedidoInvalido,
     PedidoNoEncontrado,
     PedidoRead,
     PedidosPaginados,
@@ -35,14 +36,10 @@ def create_pedido(
     service: PedidoService = Depends(get_service),
     current_user: Usuario = Depends(get_current_active_user),
 ):
-    """Crea un nuevo pedido. Cualquier usuario autenticado."""
+    """Crea un nuevo pedido (RN-01). Cualquier usuario autenticado."""
     try:
         return service.create_pedido(data, current_user.id)
-    except ProductoRepetido as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except ProductoNoDisponible as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    except StockInsuficiente as exc:
+    except (PedidoInvalido, ProductoRepetido, ProductoNoDisponible, StockInsuficiente) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except PedidoNoEncontrado as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -52,17 +49,17 @@ def create_pedido(
 def list_pedidos(
     service: PedidoService = Depends(get_service),
     current_user: Usuario = Depends(get_current_active_user),
-    skip: int = 0,
+    skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     estado: EstadoPedido | None = None,
 ):
-    """
-    Lista pedidos: propios si es user, todos si es admin.
-    Soporta filtro por estado y paginación.
-    """
+    """Lista pedidos: propios si es user, todos si es admin. Soporta filtro y paginación."""
     return service.list_pedidos(
-        current_user.id, current_user.role,
-        skip=skip, limit=limit, estado=estado,
+        current_user.id,
+        current_user.role,
+        skip=skip,
+        limit=limit,
+        estado=estado,
     )
 
 
@@ -83,14 +80,11 @@ def get_pedido(
 ):
     """Obtiene un pedido por su ID. El usuario solo ve los suyos; admin ve todos."""
     try:
-        pedido = service.get_pedido(pedido_id)
+        return service.get_pedido(pedido_id, usuario_id=current_user.id, role=current_user.role)
     except PedidoNoEncontrado as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-    if current_user.role != "admin" and pedido.usuario_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso")
-
-    return pedido
+    except PedidoAjeno as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.get("/admin/{pedido_id}", response_model=PedidoRead)
@@ -112,7 +106,7 @@ def cancelar_pedido(
     service: PedidoService = Depends(get_service),
     current_user: Usuario = Depends(get_current_active_user),
 ):
-    """Cancela un pedido propio en estado PENDIENTE. Solo el dueño."""
+    """Cancela un pedido propio en estado PENDIENTE y restituye stock. Solo el dueño."""
     try:
         return service.cancelar_pedido(pedido_id, current_user.id)
     except PedidoNoEncontrado as exc:
@@ -130,7 +124,7 @@ def update_estado(
     service: PedidoService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Cambia el estado de un pedido. Solo admin."""
+    """Cambia el estado de un pedido según la máquina de estados. Solo admin."""
     try:
         return service.update_estado_admin(pedido_id, data)
     except PedidoNoEncontrado as exc:

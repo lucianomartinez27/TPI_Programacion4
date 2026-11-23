@@ -25,7 +25,11 @@ class UnitOfWork:
             if exc_type:
                 self.session.rollback()
             else:
-                self.session.commit()
+                try:
+                    self.session.commit()
+                except Exception:
+                    self.session.rollback()
+                    raise
         finally:
             self.session.close()
             self.session = None

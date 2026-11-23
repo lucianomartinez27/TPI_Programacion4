@@ -3,13 +3,14 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import UniqueConstraint
+from sqlmodel import Field, Relationship, SQLModel
 
 from app.modules.pedidos.enums import EstadoPedido, FormaPago
 
 if TYPE_CHECKING:
-    from app.modules.usuarios.models import Usuario
     from app.modules.productos.models import Producto
+    from app.modules.usuarios.models import Usuario
 
 
 class Pedido(SQLModel, table=True):
@@ -32,12 +33,15 @@ class Pedido(SQLModel, table=True):
 
 
 class DetallePedido(SQLModel, table=True):
-    """Entidad DetallePedido (línea de un pedido) con tabla en la base de datos."""
+    """Entidad DetallePedido (línea inmutable de un pedido) con tabla en la base de datos."""
 
     __tablename__ = "detalle_pedidos"
+    __table_args__ = (
+        UniqueConstraint("pedido_id", "producto_id", name="uq_detalle_pedido_producto"),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
-    pedido_id: int = Field(foreign_key="pedidos.id", index=True)
+    pedido_id: int = Field(foreign_key="pedidos.id", index=True, ondelete="CASCADE")
     producto_id: int = Field(foreign_key="productos.id", index=True)
     cantidad: int = Field(ge=1)
     nombre_producto: str = Field(max_length=200)

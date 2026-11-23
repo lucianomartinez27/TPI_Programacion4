@@ -3,7 +3,8 @@
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlmodel import Session, select, func
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, func, select
 
 from app.core.base_repository import BaseRepository
 from app.modules.pedidos.enums import EstadoPedido
@@ -16,30 +17,47 @@ class PedidoRepository(BaseRepository[Pedido]):
     def __init__(self, session: Session):
         super().__init__(session, Pedido)
 
+    def get_by_id_with_items(self, pedido_id: int) -> Pedido | None:
+        """Obtiene un pedido precargando sus líneas con selectinload."""
+        stmt = (
+            select(Pedido)
+            .where(Pedido.id == pedido_id)
+            .options(selectinload(Pedido.items))
+        )
+        return self.session.exec(stmt).first()
+
     def get_by_user(
         self, usuario_id: int, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
     ) -> tuple[int, Sequence[Pedido]]:
-        """Lista los pedidos de un usuario con filtro opcional por estado."""
+        """Lista los pedidos de un usuario con filtro opcional, orden y eager loading."""
         stmt = select(Pedido).where(Pedido.usuario_id == usuario_id)
         if estado is not None:
             stmt = stmt.where(Pedido.estado == estado)
-        stmt = stmt.order_by(Pedido.created_at.desc())
 
         total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = self.session.exec(stmt.offset(skip).limit(limit)).all()
+        results = self.session.exec(
+            stmt.options(selectinload(Pedido.items))
+            .order_by(Pedido.created_at.desc(), Pedido.id.desc())
+            .offset(skip)
+            .limit(limit)
+        ).all()
         return total, results
 
     def get_all_admin(
         self, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
     ) -> tuple[int, Sequence[Pedido]]:
-        """Lista todos los pedidos (admin) con filtro opcional por estado."""
+        """Lista todos los pedidos (admin) con filtro opcional, orden y eager loading."""
         stmt = select(Pedido)
         if estado is not None:
             stmt = stmt.where(Pedido.estado == estado)
-        stmt = stmt.order_by(Pedido.created_at.desc())
 
         total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = self.session.exec(stmt.offset(skip).limit(limit)).all()
+        results = self.session.exec(
+            stmt.options(selectinload(Pedido.items))
+            .order_by(Pedido.created_at.desc(), Pedido.id.desc())
+            .offset(skip)
+            .limit(limit)
+        ).all()
         return total, results
 
     def get_counts_by_state(self) -> dict[EstadoPedido, int]:
@@ -69,5 +87,9 @@ class DetallePedidoRepository(BaseRepository[DetallePedido]):
 
     def get_by_pedido(self, pedido_id: int) -> Sequence[DetallePedido]:
         """Lista las líneas de un pedido."""
-        stmt = select(DetallePedido).where(DetallePedido.pedido_id == pedido_id)
+        stmt = (
+            select(DetallePedido)
+            .where(DetallePedido.pedido_id == pedido_id)
+            .order_by(DetallePedido.id)
+        )
         return self.session.exec(stmt).all()

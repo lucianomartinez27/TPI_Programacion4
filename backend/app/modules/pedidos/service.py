@@ -11,6 +11,7 @@ from app.modules.pedidos.schemas import (
     DetallePedidoRead,
     PedidoAjeno,
     PedidoCreate,
+    PedidoInvalido,
     PedidoNoEncontrado,
     PedidoRead,
     PedidosPaginados,
@@ -22,7 +23,7 @@ from app.modules.pedidos.schemas import (
 )
 from app.modules.pedidos.unit_of_work import PedidoUnitOfWork
 
-# Mapa de transiciones válidas de la máquina de estados
+# Mapa de transiciones válidas de la máquina de estados (RN-02)
 TRANSICIONES = {
     EstadoPedido.PENDIENTE: [EstadoPedido.EN_PREPARACION, EstadoPedido.CANCELADO],
     EstadoPedido.EN_PREPARACION: [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
@@ -43,14 +44,13 @@ class PedidoService:
         RN-01: al menos un ítem, sin productos repetidos, stock suficiente.
         """
         if not data.items:
-            raise PedidoNoEncontrado("El pedido debe tener al menos un ítem")
+            raise PedidoInvalido("El pedido debe tener al menos un ítem")
 
         producto_ids = [item.producto_id for item in data.items]
         if len(producto_ids) != len(set(producto_ids)):
             raise ProductoRepetido("No se pueden repetir productos en el mismo pedido")
 
         with self.uow as uow:
-            # Validar y preparar líneas
             lineas: list[DetallePedido] = []
             total = 0.0
 
@@ -66,7 +66,6 @@ class PedidoService:
                         f"(disponible: {producto.stock}, solicitado: {item.cantidad})"
                     )
 
-                # Descuento de stock a través del repositorio
                 producto.stock -= item.cantidad
                 uow.productos.save(producto)
 
@@ -83,7 +82,6 @@ class PedidoService:
                 )
                 lineas.append(detalle)
 
-            # Crear pedido (el repositorio hace flush para obtener pedido.id)
             pedido = Pedido(
                 usuario_id=usuario_id,
                 forma_pago=data.forma_pago,
@@ -93,28 +91,46 @@ class PedidoService:
             )
             uow.pedidos.add(pedido)
 
-            # Crear líneas con el pedido_id obtenido tras el flush
             for detalle in lineas:
                 detalle.pedido_id = pedido.id
                 uow.detalle_pedidos.add(detalle)
 
             return self._build_pedido_read(pedido, lineas)
 
-    def get_pedido(self, pedido_id: int) -> PedidoRead:
-        """Obtiene un pedido con sus líneas."""
+    def get_pedido(
+        self,
+        pedido_id: int,
+        usuario_id: int | None = None,
+        role: str = "admin",
+    ) -> PedidoRead:
+        """Obtiene un pedido con sus líneas validando permisos por dueño o rol (RN-04)."""
         with self.uow as uow:
-            pedido = uow.pedidos.get_by_id(pedido_id)
+            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
+            pedido = (
+                get_with_items(pedido_id)
+                if callable(get_with_items)
+                else uow.pedidos.get_by_id(pedido_id)
+            )
             if pedido is None:
                 raise PedidoNoEncontrado("Pedido no encontrado")
-            lineas = uow.detalle_pedidos.get_by_pedido(pedido.id)
+
+            if usuario_id is not None and role != "admin" and pedido.usuario_id != usuario_id:
+                raise PedidoAjeno("No tienes permiso para ver este pedido")
+
+            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido.id)
             return self._build_pedido_read(pedido, lineas)
 
     def list_pedidos(
-        self, usuario_id: int, role: str, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
+        self,
+        usuario_id: int,
+        role: str,
+        skip: int = 0,
+        limit: int = 100,
+        estado: EstadoPedido | None = None,
     ) -> PedidosPaginados:
         """
         Lista pedidos: propios si es user, todos si es admin.
-        Soporta filtro por estado y paginación.
+        Usa selectinload en el repositorio para evitar consultas N+1.
         """
         with self.uow as uow:
             if role == "admin":
@@ -124,7 +140,10 @@ class PedidoService:
                     usuario_id, skip=skip, limit=limit, estado=estado
                 )
             items = [
-                self._build_pedido_read(p, uow.detalle_pedidos.get_by_pedido(p.id))
+                self._build_pedido_read(
+                    p,
+                    p.items if p.items else uow.detalle_pedidos.get_by_pedido(p.id),
+                )
                 for p in pedidos
             ]
             return PedidosPaginados(total=total, items=items)
@@ -148,7 +167,12 @@ class PedidoService:
         RN-03: cancelar restituye stock.
         """
         with self.uow as uow:
-            pedido = uow.pedidos.get_by_id(pedido_id)
+            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
+            pedido = (
+                get_with_items(pedido_id)
+                if callable(get_with_items)
+                else uow.pedidos.get_by_id(pedido_id)
+            )
             if pedido is None:
                 raise PedidoNoEncontrado("Pedido no encontrado")
 
@@ -158,8 +182,7 @@ class PedidoService:
             if pedido.estado != EstadoPedido.PENDIENTE:
                 raise TransicionInvalida("Solo se pueden cancelar pedidos en estado PENDIENTE")
 
-            # Restituir stock (RN-03)
-            lineas = uow.detalle_pedidos.get_by_pedido(pedido_id)
+            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido_id)
             for linea in lineas:
                 producto = uow.productos.get_by_id(linea.producto_id)
                 if producto:
@@ -179,20 +202,23 @@ class PedidoService:
         RN-03: cancelar restituye stock.
         """
         with self.uow as uow:
-            pedido = uow.pedidos.get_by_id(pedido_id)
+            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
+            pedido = (
+                get_with_items(pedido_id)
+                if callable(get_with_items)
+                else uow.pedidos.get_by_id(pedido_id)
+            )
             if pedido is None:
                 raise PedidoNoEncontrado("Pedido no encontrado")
 
-            # Validar transición
             allowed = TRANSICIONES.get(pedido.estado, [])
             if data.estado not in allowed:
                 raise TransicionInvalida(
                     f"No se puede cambiar de {pedido.estado.value} a {data.estado.value}"
                 )
 
-            lineas = uow.detalle_pedidos.get_by_pedido(pedido_id)
+            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido_id)
 
-            # Cancelar: restituir stock (RN-03)
             if data.estado == EstadoPedido.CANCELADO:
                 for linea in lineas:
                     producto = uow.productos.get_by_id(linea.producto_id)
@@ -218,7 +244,5 @@ class PedidoService:
             total=pedido.total,
             created_at=pedido.created_at,
             updated_at=pedido.updated_at,
-            items=[
-                DetallePedidoRead.model_validate(l) for l in lineas
-            ],
+            items=[DetallePedidoRead.model_validate(linea) for linea in lineas],
         )

@@ -4,6 +4,8 @@ from app.core.database import session_factory
 from app.core.security import get_password_hash, verify_password
 from app.modules.usuarios.models import Usuario
 from app.modules.usuarios.schemas import (
+    ContrasenaIncorrecta,
+    OperacionUsuarioInvalida,
     PasswordChange,
     UsuarioCreate,
     UsuarioDuplicado,
@@ -77,7 +79,7 @@ class UsuarioService:
             return [UsuarioListRead.model_validate(u) for u in users]
 
     def activate_user(self, user_id: int) -> UsuarioListRead:
-        """Activa un usuario (admin)."""
+        """Activa un usuario (admin). Operación idempotente."""
         with self.uow as uow:
             user = uow.usuarios.get_by_id(user_id)
             if user is None:
@@ -92,18 +94,19 @@ class UsuarioService:
         Protege contra desactivar al último admin del sistema.
         """
         if user_id == current_user_id:
-            raise UsuarioNoEncontrado("No puedes desactivarte a ti mismo")
+            raise OperacionUsuarioInvalida("No puedes desactivarte a ti mismo")
         with self.uow as uow:
             user = uow.usuarios.get_by_id(user_id)
             if user is None:
                 raise UsuarioNoEncontrado("Usuario no encontrado")
 
-            # No permitir desactivar al último admin
             if user.role == "admin":
                 admins = uow.usuarios.get_by_role("admin")
                 active_admins = [a for a in admins if not a.disabled]
-                if len(active_admins) <= 1:
-                    raise UsuarioNoEncontrado("No se puede desactivar al último administrador activo")
+                if len(active_admins) <= 1 and not user.disabled:
+                    raise OperacionUsuarioInvalida(
+                        "No se puede desactivar al último administrador activo"
+                    )
 
             user.disabled = True
             uow.usuarios.save(user)
@@ -120,7 +123,6 @@ class UsuarioService:
             if not update_data:
                 return UsuarioRead.model_validate(user)
 
-            # Verificar que el email no esté en uso por otro usuario
             if "email" in update_data:
                 existing = uow.usuarios.get_by_email(update_data["email"])
                 if existing and existing.id != user_id:
@@ -138,7 +140,7 @@ class UsuarioService:
                 raise UsuarioNoEncontrado("Usuario no encontrado")
 
             if not verify_password(data.old_password, user.hashed_password):
-                raise UsuarioNoEncontrado("La contraseña actual es incorrecta")
+                raise ContrasenaIncorrecta("La contraseña actual es incorrecta")
 
             user.hashed_password = get_password_hash(data.new_password)
             uow.usuarios.save(user)

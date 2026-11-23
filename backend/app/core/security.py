@@ -1,7 +1,6 @@
 """Utilidades de seguridad: hash de contraseñas, tokens JWT y OAuth2."""
 
 import logging
-
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -25,19 +24,22 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Crea un token JWT con los datos proporcionados."""
+    """Crea un token JWT de tipo 'access' con expiración en UTC."""
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict | None:
-    """Decodifica un token JWT. Devuelve None si el token es inválido."""
+    """Decodifica y valida un token JWT de tipo 'access'. Devuelve None si es inválido."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "access":
+            logger.warning("Token JWT rechazado: tipo inválido (%s)", payload.get("type"))
+            return None
         return payload
     except JWTError as exc:
         logger.warning("Token JWT inválido: %s", exc)

@@ -1,17 +1,18 @@
-"""Schemas Pydantic y excepciones de dominio para el módulo de pedidos."""
+"""Schemas SQLModel y excepciones de dominio para el módulo de pedidos."""
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
 
-from app.core.exceptions import ProductoNoDisponible, StockInsuficiente
+from app.core.exceptions import ProductoNoDisponible, StockInsuficiente  # noqa: F401
 from app.modules.pedidos.enums import EstadoPedido, FormaPago
 
 
 # --- Excepciones de dominio ---
 
 class PedidoNoEncontrado(Exception):
-    """El pedido solicitado no existe."""
+    """El pedido o producto solicitado no existe."""
 
 
 class PedidoAjeno(Exception):
@@ -26,26 +27,39 @@ class TransicionInvalida(Exception):
     """La transición de estado no es válida."""
 
 
+class PedidoInvalido(Exception):
+    """El pedido no cumple con las reglas de validación de dominio."""
+
+
 # --- Schemas ---
 
-class PedidoItemCreate(BaseModel):
+class PedidoItemCreate(SQLModel):
+    """Ítem individual al crear un pedido."""
+
     producto_id: int
     cantidad: int = Field(ge=1)
 
 
-class PedidoCreate(BaseModel):
+class PedidoCreate(SQLModel):
+    """Schema para crear un pedido desde el carrito."""
+
     forma_pago: FormaPago
     direccion_entrega: str = Field(min_length=5, max_length=200)
     notas: str | None = None
     items: list[PedidoItemCreate] = Field(min_length=1)
 
 
-class CambioEstado(BaseModel):
+class CambioEstado(SQLModel):
     """Schema para cambiar el estado de un pedido (admin)."""
+
     estado: EstadoPedido
 
 
-class DetallePedidoRead(BaseModel):
+class DetallePedidoRead(SQLModel):
+    """Schema de lectura de una línea de pedido."""
+
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     pedido_id: int
     producto_id: int
@@ -54,11 +68,12 @@ class DetallePedidoRead(BaseModel):
     precio_unitario: float
     subtotal: float
 
-    class Config:
-        from_attributes = True
 
+class PedidoRead(SQLModel):
+    """Schema de lectura de un pedido con sus líneas."""
 
-class PedidoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     usuario_id: int
     estado: EstadoPedido
@@ -70,18 +85,17 @@ class PedidoRead(BaseModel):
     updated_at: datetime
     items: list[DetallePedidoRead] = []
 
-    class Config:
-        from_attributes = True
 
-
-class PedidosPaginados(BaseModel):
+class PedidosPaginados(SQLModel):
     """Respuesta paginada de pedidos."""
+
     total: int
     items: list[PedidoRead]
 
 
-class ResumenPedidos(BaseModel):
+class ResumenPedidos(SQLModel):
     """Resumen de pedidos para el panel de administración."""
+
     pendientes: int
     en_preparacion: int
     entregados: int

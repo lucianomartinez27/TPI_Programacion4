@@ -13,6 +13,14 @@ from app.modules.usuarios.service import UsuarioService
 from app.modules.usuarios.unit_of_work import UsuarioUnitOfWork
 
 
+class CredencialesInvalidas(Exception):
+    """Las credenciales de inicio de sesión son incorrectas."""
+
+
+class CuentaDesactivada(Exception):
+    """La cuenta de usuario se encuentra desactivada."""
+
+
 class AuthService:
     """Lógica de negocio para autenticación."""
 
@@ -30,15 +38,15 @@ class AuthService:
         return UserRead.model_validate(user)
 
     def login(self, username: str, password: str) -> TokenResponse:
-        """Inicia sesión y devuelve un token JWT."""
+        """Inicia sesión y devuelve un token JWT con sub, role y type='access'."""
         with self.uow as uow:
             user = uow.usuarios.get_by_username(username)
             if user is None or not verify_password(password, user.hashed_password):
-                raise ValueError("Credenciales incorrectas")
+                raise CredencialesInvalidas("Credenciales incorrectas")
             if user.disabled:
-                raise ValueError("Cuenta de usuario desactivada")
+                raise CuentaDesactivada("Cuenta de usuario desactivada")
 
-            token = create_access_token(data={"sub": str(user.id)})
+            token = create_access_token(data={"sub": str(user.id), "role": user.role})
             return TokenResponse(access_token=token)
 
     def get_current_user_profile(self, user: Usuario) -> UserRead:

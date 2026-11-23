@@ -1,12 +1,12 @@
 """Router de endpoints para el módulo de usuarios (admin)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.usuarios.models import Usuario
 from app.modules.usuarios.schemas import (
-    UsuarioDuplicado,
+    OperacionUsuarioInvalida,
     UsuarioListRead,
     UsuarioNoEncontrado,
 )
@@ -24,8 +24,8 @@ def get_service() -> UsuarioService:
 def list_users(
     service: UsuarioService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
 ):
     """Lista todos los usuarios. Solo admin."""
     return service.list_users(skip=skip, limit=limit)
@@ -37,7 +37,7 @@ def activate_user(
     service: UsuarioService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Activa un usuario. Solo admin."""
+    """Activa un usuario (idempotente). Solo admin."""
     try:
         return service.activate_user(user_id)
     except UsuarioNoEncontrado as exc:
@@ -53,15 +53,15 @@ def deactivate_user(
     service: UsuarioService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Desactiva un usuario. Solo admin. No puede desactivarse a sí mismo."""
+    """Desactiva un usuario (idempotente). Solo admin. No puede desactivarse a sí mismo."""
     try:
         return service.deactivate_user(user_id, admin_user.id)
+    except OperacionUsuarioInvalida as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
     except UsuarioNoEncontrado as exc:
-        if "ti mismo" in str(exc) or "último administrador" in str(exc):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),

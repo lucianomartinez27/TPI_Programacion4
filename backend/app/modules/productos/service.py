@@ -28,7 +28,6 @@ class ProductoService:
     def create_producto(self, data: ProductoCreate) -> ProductoRead:
         """Crea un nuevo producto."""
         with self.uow as uow:
-            # Validar que la categoría exista y esté activa
             categoria = uow.categorias.get_by_id(data.categoria_id)
             if categoria is None or not categoria.activo:
                 raise ProductoNoEncontrado("La categoría especificada no existe o no está activa")
@@ -46,12 +45,13 @@ class ProductoService:
             return self._build_producto_read(producto, categoria)
 
     def get_producto(self, producto_id: int) -> ProductoRead:
-        """Obtiene un producto por su ID."""
+        """Obtiene un producto por su ID con su categoría precargada."""
         with self.uow as uow:
-            producto = uow.productos.get_by_id(producto_id)
+            get_with_cat = getattr(uow.productos, "get_by_id_with_categoria", None)
+            producto = get_with_cat(producto_id) if callable(get_with_cat) else uow.productos.get_by_id(producto_id)
             if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
-            categoria = uow.categorias.get_by_id(producto.categoria_id)
+            categoria = producto.categoria or uow.categorias.get_by_id(producto.categoria_id)
             return self._build_producto_read(producto, categoria)
 
     def list_productos(
@@ -62,26 +62,33 @@ class ProductoService:
         categoria_id: int | None = None,
         disponible: bool | None = None,
     ) -> ProductosPaginados:
-        """Lista los productos con filtros y paginación."""
+        """Lista los productos con filtros y paginación sin N+1 (usa selectinload)."""
         with self.uow as uow:
             total, productos = uow.productos.search(
-                skip=skip, limit=limit, search=search,
-                categoria_id=categoria_id, disponible=disponible,
+                skip=skip,
+                limit=limit,
+                search=search,
+                categoria_id=categoria_id,
+                disponible=disponible,
             )
             items = [
-                self._build_producto_read(p, uow.categorias.get_by_id(p.categoria_id))
+                self._build_producto_read(
+                    p,
+                    p.categoria if p.categoria is not None else uow.categorias.get_by_id(p.categoria_id),
+                )
                 for p in productos
             ]
             return ProductosPaginados(total=total, items=items)
 
     def update_producto(self, producto_id: int, data: ProductoUpdate) -> ProductoRead:
-        """Actualiza un producto."""
+        """Actualiza un producto (actualización parcial)."""
         with self.uow as uow:
             producto = uow.productos.get_by_id(producto_id)
             if producto is None or not producto.activo:
                 raise ProductoNoEncontrado("Producto no encontrado")
 
             update_data = data.model_dump(exclude_unset=True)
+            categoria: Categoria | None = None
             if "categoria_id" in update_data:
                 categoria = uow.categorias.get_by_id(update_data["categoria_id"])
                 if categoria is None or not categoria.activo:
@@ -89,7 +96,8 @@ class ProductoService:
 
             producto.sqlmodel_update(update_data)
             uow.productos.save(producto)
-            categoria = uow.categorias.get_by_id(producto.categoria_id)
+            if categoria is None:
+                categoria = uow.categorias.get_by_id(producto.categoria_id)
             return self._build_producto_read(producto, categoria)
 
     def update_stock(self, producto_id: int, data: ProductoStockUpdate) -> ProductoRead:

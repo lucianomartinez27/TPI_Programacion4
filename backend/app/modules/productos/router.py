@@ -26,16 +26,19 @@ def get_service() -> ProductoService:
 @router.get("/", response_model=ProductosPaginados)
 def list_productos(
     service: ProductoService = Depends(get_service),
-    skip: int = 0,
+    skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     search: str | None = None,
     categoria_id: int | None = None,
     disponible: bool | None = None,
 ):
-    """Lista los productos con filtros y paginación (público)."""
+    """Lista los productos activos con filtros y paginación (público)."""
     return service.list_productos(
-        skip=skip, limit=limit, search=search,
-        categoria_id=categoria_id, disponible=disponible,
+        skip=skip,
+        limit=limit,
+        search=search,
+        categoria_id=categoria_id,
+        disponible=disponible,
     )
 
 
@@ -44,7 +47,7 @@ def get_producto(
     producto_id: int,
     service: ProductoService = Depends(get_service),
 ):
-    """Obtiene un producto por su ID."""
+    """Obtiene un producto activo por su ID."""
     try:
         return service.get_producto(producto_id)
     except ProductoNoEncontrado as exc:
@@ -71,7 +74,7 @@ def update_producto(
     service: ProductoService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Actualiza un producto. Solo admin."""
+    """Actualiza un producto (actualización parcial). Solo admin."""
     try:
         return service.update_producto(producto_id, data)
     except ProductoNoEncontrado as exc:
@@ -85,7 +88,7 @@ def update_stock(
     service: ProductoService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Actualiza solo el stock de un producto. Solo admin."""
+    """Actualiza el stock y disponibilidad de un producto. Solo admin."""
     try:
         return service.update_stock(producto_id, data)
     except ProductoNoEncontrado as exc:

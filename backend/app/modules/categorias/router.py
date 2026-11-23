@@ -1,10 +1,9 @@
 """Router de endpoints para el módulo de categorías."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.database import session_factory
 from app.core.deps import require_role
-from app.modules.usuarios.models import Usuario
 from app.modules.categorias.schemas import (
     CategoriaCreate,
     CategoriaNoEncontrada,
@@ -14,6 +13,7 @@ from app.modules.categorias.schemas import (
 )
 from app.modules.categorias.service import CategoriaService
 from app.modules.categorias.unit_of_work import CategoriaUnitOfWork
+from app.modules.usuarios.models import Usuario
 
 router = APIRouter(tags=["categorias"])
 
@@ -25,8 +25,8 @@ def get_service() -> CategoriaService:
 @router.get("/", response_model=list[CategoriaRead])
 def list_categorias(
     service: CategoriaService = Depends(get_service),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
 ):
     """Lista las categorías activas (público)."""
     return service.list_categorias_activas(skip=skip, limit=limit)
@@ -36,8 +36,8 @@ def list_categorias(
 def list_all_categorias(
     service: CategoriaService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
 ):
     """Lista todas las categorías (incluidas las inactivas). Solo admin."""
     return service.list_categorias(skip=skip, limit=limit)
@@ -75,7 +75,7 @@ def update_categoria(
     service: CategoriaService = Depends(get_service),
     admin_user: Usuario = Depends(require_role("admin")),
 ):
-    """Actualiza una categoría. Solo admin."""
+    """Actualiza una categoría (actualización parcial). Solo admin."""
     try:
         return service.update_categoria(categoria_id, data)
     except CategoriaNoEncontrada as exc:

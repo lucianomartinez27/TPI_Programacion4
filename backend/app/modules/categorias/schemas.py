@@ -1,6 +1,7 @@
-"""Schemas Pydantic y excepciones de dominio para el módulo de categorías."""
+"""Schemas SQLModel y excepciones de dominio para el módulo de categorías."""
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict
+from sqlmodel import Field, SQLModel
 
 
 # --- Excepciones de dominio ---
@@ -15,28 +16,27 @@ class NombreDuplicado(Exception):
 
 # --- Schemas ---
 
-class CategoriaCreate(BaseModel):
+class CategoriaCreate(SQLModel):
     """Schema para crear una categoría."""
 
     nombre: str = Field(min_length=2, max_length=100)
     descripcion: str | None = None
 
 
-class CategoriaUpdate(BaseModel):
-    """Schema para actualizar una categoría."""
+class CategoriaUpdate(SQLModel):
+    """Schema para actualizar una categoría (actualización parcial)."""
 
     nombre: str | None = Field(default=None, min_length=2, max_length=100)
     descripcion: str | None = None
     activo: bool | None = None
 
 
-class CategoriaRead(BaseModel):
+class CategoriaRead(SQLModel):
     """Schema de lectura de una categoría."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     nombre: str
     descripcion: str | None
     activo: bool
-
-    class Config:
-        from_attributes = True

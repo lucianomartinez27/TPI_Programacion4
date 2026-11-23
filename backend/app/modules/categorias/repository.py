@@ -20,10 +20,11 @@ class CategoriaRepository(BaseRepository[Categoria]):
         return self.session.exec(stmt).first()
 
     def get_active(self, skip: int = 0, limit: int = 100) -> Sequence[Categoria]:
-        """Lista las categorías activas."""
+        """Lista las categorías activas con orden determinista."""
         stmt = (
             select(Categoria)
             .where(Categoria.activo == True)  # noqa: E712
+            .order_by(Categoria.id)
             .offset(skip)
             .limit(limit)
         )
