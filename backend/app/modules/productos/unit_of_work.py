@@ -1,13 +1,9 @@
-"""Unit of Work para el módulo de productos."""
-
-from app.core.unit_of_work import UnitOfWork as BaseUnitOfWork
+from app.core.unit_of_work import UnitOfWork
 from app.modules.categorias.repository import CategoriaRepository
 from app.modules.productos.repository import ProductoRepository
 
 
-class ProductoUnitOfWork(BaseUnitOfWork):
-    """Unit of Work especializado para operaciones con productos."""
-
+class ProductoUnitOfWork(UnitOfWork):
     productos: ProductoRepository
     categorias: CategoriaRepository
 

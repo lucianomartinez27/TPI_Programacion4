@@ -1,97 +1,85 @@
-"""Router de endpoints para el módulo de categorías."""
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.categorias.schemas import (
     CategoriaCreate,
-    CategoriaNoEncontrada,
     CategoriaRead,
     CategoriaUpdate,
+)
+from app.modules.categorias.service import (
+    CategoriaNoEncontrada,
+    CategoriaService,
     NombreDuplicado,
 )
-from app.modules.categorias.service import CategoriaService
 from app.modules.categorias.unit_of_work import CategoriaUnitOfWork
-from app.modules.usuarios.models import Usuario
+from app.modules.usuarios.schemas import UserPublic
 
-router = APIRouter(tags=["categorias"])
-
-
-def get_service() -> CategoriaService:
-    return CategoriaService(CategoriaUnitOfWork(session_factory))
+router = APIRouter(prefix="/categorias", tags=["Categorías"])
 
 
-@router.get("/", response_model=list[CategoriaRead])
-def list_categorias(
-    service: CategoriaService = Depends(get_service),
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=100),
-):
-    """Lista las categorías activas (público)."""
-    return service.list_categorias_activas(skip=skip, limit=limit)
+def get_categoria_service() -> CategoriaService:
+    return CategoriaService(CategoriaUnitOfWork())
 
 
-@router.get("/admin", response_model=list[CategoriaRead])
-def list_all_categorias(
-    service: CategoriaService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, ge=1, le=100),
-):
-    """Lista todas las categorías (incluidas las inactivas). Solo admin."""
-    return service.list_categorias(skip=skip, limit=limit)
+@router.get("", response_model=list[CategoriaRead])
+def listar_categorias(
+    service: Annotated[CategoriaService, Depends(get_categoria_service)],
+) -> list[CategoriaRead]:
+    return service.listar_activas()
 
 
 @router.get("/{categoria_id}", response_model=CategoriaRead)
-def get_categoria(
+def obtener_categoria(
     categoria_id: int,
-    service: CategoriaService = Depends(get_service),
-):
-    """Obtiene una categoría por su ID."""
+    service: Annotated[CategoriaService, Depends(get_categoria_service)],
+) -> CategoriaRead:
     try:
-        return service.get_categoria(categoria_id)
-    except CategoriaNoEncontrada as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        return service.obtener_por_id(categoria_id)
+    except CategoriaNoEncontrada as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.post("/", response_model=CategoriaRead, status_code=status.HTTP_201_CREATED)
-def create_categoria(
+@router.post(
+    "",
+    response_model=CategoriaRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_categoria(
     data: CategoriaCreate,
-    service: CategoriaService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Crea una nueva categoría. Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[CategoriaService, Depends(get_categoria_service)],
+) -> CategoriaRead:
     try:
-        return service.create_categoria(data)
-    except NombreDuplicado as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        return service.crear(data)
+    except NombreDuplicado as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.put("/{categoria_id}", response_model=CategoriaRead)
-def update_categoria(
+def actualizar_categoria(
     categoria_id: int,
     data: CategoriaUpdate,
-    service: CategoriaService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Actualiza una categoría (actualización parcial). Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[CategoriaService, Depends(get_categoria_service)],
+) -> CategoriaRead:
     try:
-        return service.update_categoria(categoria_id, data)
-    except CategoriaNoEncontrada as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except NombreDuplicado as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+        return service.actualizar(categoria_id, data)
+    except CategoriaNoEncontrada as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except NombreDuplicado as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.delete("/{categoria_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_categoria(
+def eliminar_categoria(
     categoria_id: int,
-    service: CategoriaService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Desactiva una categoría (baja lógica). Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[CategoriaService, Depends(get_categoria_service)],
+) -> Response:
     try:
-        service.delete_categoria(categoria_id)
-    except CategoriaNoEncontrada as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        service.eliminar(categoria_id)
+    except CategoriaNoEncontrada as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

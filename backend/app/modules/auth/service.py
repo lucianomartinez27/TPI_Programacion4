@@ -1,63 +1,53 @@
-"""Service para el módulo de autenticación."""
-
-from app.core.database import session_factory
-from app.core.security import create_access_token, verify_password
-from app.modules.auth.schemas import TokenResponse, UserRead
+from app.core.security import create_access_token, hash_password, verify_password
 from app.modules.usuarios.models import Usuario
-from app.modules.usuarios.schemas import (
-    PasswordChange,
-    UsuarioCreate,
-    UsuarioUpdate,
-)
-from app.modules.usuarios.service import UsuarioService
+from app.modules.usuarios.schemas import UserCreate, UserPublic
 from app.modules.usuarios.unit_of_work import UsuarioUnitOfWork
 
 
+class UsuarioDuplicado(Exception):
+    pass
+
+
 class CredencialesInvalidas(Exception):
-    """Las credenciales de inicio de sesión son incorrectas."""
+    pass
 
 
 class CuentaDesactivada(Exception):
-    """La cuenta de usuario se encuentra desactivada."""
+    pass
 
 
 class AuthService:
-    """Lógica de negocio para autenticación."""
+    def __init__(self, uow: UsuarioUnitOfWork) -> None:
+        self.uow = uow
 
-    def __init__(
-        self,
-        uow: UsuarioUnitOfWork | None = None,
-        usuario_service: UsuarioService | None = None,
-    ):
-        self.uow = uow or UsuarioUnitOfWork(session_factory)
-        self.usuario_service = usuario_service or UsuarioService(self.uow)
-
-    def register(self, user_in: UsuarioCreate) -> UserRead:
-        """Registra un nuevo usuario."""
-        user = self.usuario_service.create_user(user_in)
-        return UserRead.model_validate(user)
-
-    def login(self, username: str, password: str) -> TokenResponse:
-        """Inicia sesión y devuelve un token JWT con sub, role y type='access'."""
+    def registrar(self, data: UserCreate) -> UserPublic:
         with self.uow as uow:
-            user = uow.usuarios.get_by_username(username)
-            if user is None or not verify_password(password, user.hashed_password):
-                raise CredencialesInvalidas("Credenciales incorrectas")
-            if user.disabled:
+            if uow.usuarios.get_by_username(data.username.strip()):
+                raise UsuarioDuplicado("El nombre de usuario ya está registrado.")
+            if uow.usuarios.get_by_email(str(data.email).strip().lower()):
+                raise UsuarioDuplicado("El correo electrónico ya está registrado.")
+
+            usuario = Usuario(
+                username=data.username.strip(),
+                full_name=data.full_name.strip(),
+                email=str(data.email).strip().lower(),
+                hashed_password=hash_password(data.password),
+                role="user",
+                disabled=False,
+            )
+            uow.usuarios.add(usuario)
+            return UserPublic.model_validate(usuario)
+
+    def autenticar(self, username: str, password: str) -> str:
+        with self.uow as uow:
+            usuario = uow.usuarios.get_by_username(username)
+            if usuario is None or not verify_password(
+                password, usuario.hashed_password
+            ):
+                raise CredencialesInvalidas("Credenciales incorrectas.")
+            if usuario.disabled:
                 raise CuentaDesactivada("Cuenta de usuario desactivada")
 
-            token = create_access_token(data={"sub": str(user.id), "role": user.role})
-            return TokenResponse(access_token=token)
-
-    def get_current_user_profile(self, user: Usuario) -> UserRead:
-        """Devuelve el perfil del usuario autenticado."""
-        return UserRead.model_validate(user)
-
-    def update_profile(self, user_id: int, data: UsuarioUpdate) -> UserRead:
-        """Actualiza el perfil del usuario autenticado."""
-        updated = self.usuario_service.update_profile(user_id, data)
-        return UserRead.model_validate(updated)
-
-    def change_password(self, user_id: int, data: PasswordChange) -> None:
-        """Cambia la contraseña del usuario autenticado."""
-        self.usuario_service.change_password(user_id, data)
+            return create_access_token(
+                data={"sub": usuario.username, "role": usuario.role}
+            )

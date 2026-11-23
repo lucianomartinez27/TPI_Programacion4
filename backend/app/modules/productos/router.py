@@ -1,39 +1,40 @@
-"""Router de endpoints para el módulo de productos."""
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from app.core.database import session_factory
 from app.core.deps import require_role
 from app.modules.productos.schemas import (
     ProductoCreate,
-    ProductoNoEncontrado,
     ProductoRead,
     ProductosPaginados,
     ProductoStockUpdate,
     ProductoUpdate,
 )
-from app.modules.productos.service import ProductoService
+from app.modules.productos.service import (
+    CategoriaNoEncontrada,
+    ProductoNoEncontrado,
+    ProductoService,
+)
 from app.modules.productos.unit_of_work import ProductoUnitOfWork
-from app.modules.usuarios.models import Usuario
+from app.modules.usuarios.schemas import UserPublic
 
-router = APIRouter(tags=["productos"])
-
-
-def get_service() -> ProductoService:
-    return ProductoService(ProductoUnitOfWork(session_factory))
+router = APIRouter(prefix="/productos", tags=["Productos"])
 
 
-@router.get("/", response_model=ProductosPaginados)
-def list_productos(
-    service: ProductoService = Depends(get_service),
+def get_producto_service() -> ProductoService:
+    return ProductoService(ProductoUnitOfWork())
+
+
+@router.get("", response_model=ProductosPaginados)
+def listar_productos(
+    service: Annotated[ProductoService, Depends(get_producto_service)],
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    search: str | None = None,
-    categoria_id: int | None = None,
-    disponible: bool | None = None,
-):
-    """Lista los productos activos con filtros y paginación (público)."""
-    return service.list_productos(
+    search: str | None = Query(default=None),
+    categoria_id: int | None = Query(default=None),
+    disponible: bool | None = Query(default=None),
+) -> ProductosPaginados:
+    return service.listar(
         skip=skip,
         limit=limit,
         search=search,
@@ -43,66 +44,66 @@ def list_productos(
 
 
 @router.get("/{producto_id}", response_model=ProductoRead)
-def get_producto(
+def obtener_producto(
     producto_id: int,
-    service: ProductoService = Depends(get_service),
-):
-    """Obtiene un producto activo por su ID."""
+    service: Annotated[ProductoService, Depends(get_producto_service)],
+) -> ProductoRead:
     try:
-        return service.get_producto(producto_id)
-    except ProductoNoEncontrado as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        return service.obtener_por_id(producto_id)
+    except ProductoNoEncontrado as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.post("/", response_model=ProductoRead, status_code=status.HTTP_201_CREATED)
-def create_producto(
+@router.post(
+    "",
+    response_model=ProductoRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_producto(
     data: ProductoCreate,
-    service: ProductoService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Crea un nuevo producto. Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[ProductoService, Depends(get_producto_service)],
+) -> ProductoRead:
     try:
-        return service.create_producto(data)
-    except ProductoNoEncontrado as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        return service.crear(data)
+    except CategoriaNoEncontrada as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.put("/{producto_id}", response_model=ProductoRead)
-def update_producto(
+def actualizar_producto(
     producto_id: int,
     data: ProductoUpdate,
-    service: ProductoService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Actualiza un producto (actualización parcial). Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[ProductoService, Depends(get_producto_service)],
+) -> ProductoRead:
     try:
-        return service.update_producto(producto_id, data)
-    except ProductoNoEncontrado as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        return service.actualizar(producto_id, data)
+    except (ProductoNoEncontrado, CategoriaNoEncontrada) as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.patch("/{producto_id}/stock", response_model=ProductoRead)
-def update_stock(
+def actualizar_stock_producto(
     producto_id: int,
     data: ProductoStockUpdate,
-    service: ProductoService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Actualiza el stock y disponibilidad de un producto. Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[ProductoService, Depends(get_producto_service)],
+) -> ProductoRead:
     try:
-        return service.update_stock(producto_id, data)
-    except ProductoNoEncontrado as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        return service.actualizar_stock(producto_id, data)
+    except ProductoNoEncontrado as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_producto(
+def eliminar_producto(
     producto_id: int,
-    service: ProductoService = Depends(get_service),
-    admin_user: Usuario = Depends(require_role("admin")),
-):
-    """Desactiva un producto (baja lógica). Solo admin."""
+    _admin: Annotated[UserPublic, Depends(require_role(["admin"]))],
+    service: Annotated[ProductoService, Depends(get_producto_service)],
+) -> Response:
     try:
-        service.delete_producto(producto_id)
-    except ProductoNoEncontrado as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        service.eliminar(producto_id)
+    except ProductoNoEncontrado as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

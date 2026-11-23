@@ -1,12 +1,8 @@
-"""Unit of Work para el módulo de categorías."""
-
-from app.core.unit_of_work import UnitOfWork as BaseUnitOfWork
+from app.core.unit_of_work import UnitOfWork
 from app.modules.categorias.repository import CategoriaRepository
 
 
-class CategoriaUnitOfWork(BaseUnitOfWork):
-    """Unit of Work especializado para operaciones con categorías."""
-
+class CategoriaUnitOfWork(UnitOfWork):
     categorias: CategoriaRepository
 
     def __enter__(self) -> "CategoriaUnitOfWork":

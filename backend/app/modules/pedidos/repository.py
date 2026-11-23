@@ -1,95 +1,83 @@
-"""Repository para las entidades Pedido y DetallePedido."""
-
 from datetime import datetime, timezone
-from typing import Sequence
 
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
 from app.core.base_repository import BaseRepository
-from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.models import DetallePedido, Pedido
 
 
 class PedidoRepository(BaseRepository[Pedido]):
-    """Repository especializado para la entidad Pedido."""
-
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         super().__init__(session, Pedido)
 
+    def add_detalle(self, detalle: DetallePedido) -> DetallePedido:
+        self.session.add(detalle)
+        self.session.flush()
+        return detalle
+
     def get_by_id_with_items(self, pedido_id: int) -> Pedido | None:
-        """Obtiene un pedido precargando sus líneas con selectinload."""
-        stmt = (
+        statement = (
             select(Pedido)
-            .where(Pedido.id == pedido_id)
             .options(selectinload(Pedido.items))
+            .where(Pedido.id == pedido_id)
         )
-        return self.session.exec(stmt).first()
+        return self.session.exec(statement).first()
 
-    def get_by_user(
-        self, usuario_id: int, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
-    ) -> tuple[int, Sequence[Pedido]]:
-        """Lista los pedidos de un usuario con filtro opcional, orden y eager loading."""
-        stmt = select(Pedido).where(Pedido.usuario_id == usuario_id)
+    def list_by_usuario(
+        self,
+        usuario_id: int | None = None,
+        estado: str | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[int, list[Pedido]]:
+        conditions = []
+        if usuario_id is not None:
+            conditions.append(Pedido.usuario_id == usuario_id)
         if estado is not None:
-            stmt = stmt.where(Pedido.estado == estado)
+            conditions.append(Pedido.estado == estado)
 
-        total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = self.session.exec(
-            stmt.options(selectinload(Pedido.items))
+        count_stmt = select(func.count()).select_from(Pedido)
+        items_stmt = (
+            select(Pedido)
+            .options(selectinload(Pedido.items))
             .order_by(Pedido.created_at.desc(), Pedido.id.desc())
-            .offset(skip)
-            .limit(limit)
-        ).all()
-        return total, results
-
-    def get_all_admin(
-        self, skip: int = 0, limit: int = 100, estado: EstadoPedido | None = None
-    ) -> tuple[int, Sequence[Pedido]]:
-        """Lista todos los pedidos (admin) con filtro opcional, orden y eager loading."""
-        stmt = select(Pedido)
-        if estado is not None:
-            stmt = stmt.where(Pedido.estado == estado)
-
-        total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        results = self.session.exec(
-            stmt.options(selectinload(Pedido.items))
-            .order_by(Pedido.created_at.desc(), Pedido.id.desc())
-            .offset(skip)
-            .limit(limit)
-        ).all()
-        return total, results
-
-    def get_counts_by_state(self) -> dict[EstadoPedido, int]:
-        """Devuelve la cantidad de pedidos por estado."""
-        stmt = select(Pedido.estado, func.count()).group_by(Pedido.estado)
-        results = self.session.exec(stmt).all()
-        return {estado: count for estado, count in results}
-
-    def get_today_count(self) -> int:
-        """Devuelve la cantidad de pedidos creados hoy."""
-        start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        stmt = select(func.count()).where(Pedido.created_at >= start_of_day)
-        return self.session.exec(stmt).one()
-
-    def get_delivered_revenue(self) -> float:
-        """Devuelve el ingreso total de pedidos entregados."""
-        stmt = select(func.sum(Pedido.total)).where(Pedido.estado == EstadoPedido.ENTREGADO)
-        result = self.session.exec(stmt).one()
-        return result or 0.0
-
-
-class DetallePedidoRepository(BaseRepository[DetallePedido]):
-    """Repository especializado para la entidad DetallePedido."""
-
-    def __init__(self, session: Session):
-        super().__init__(session, DetallePedido)
-
-    def get_by_pedido(self, pedido_id: int) -> Sequence[DetallePedido]:
-        """Lista las líneas de un pedido."""
-        stmt = (
-            select(DetallePedido)
-            .where(DetallePedido.pedido_id == pedido_id)
-            .order_by(DetallePedido.id)
         )
-        return self.session.exec(stmt).all()
+        if conditions:
+            count_stmt = count_stmt.where(*conditions)
+            items_stmt = items_stmt.where(*conditions)
+
+        total = int(self.session.exec(count_stmt).one())
+        items = list(self.session.exec(items_stmt.offset(skip).limit(limit)).all())
+        return total, items
+
+    def count_by_estado(self) -> dict[str, int]:
+        statement = select(Pedido.estado, func.count(Pedido.id)).group_by(
+            Pedido.estado
+        )
+        rows = self.session.exec(statement).all()
+        return {estado: int(cantidad) for estado, cantidad in rows}
+
+    def count_pedidos_hoy(self) -> int:
+        ahora = datetime.now(timezone.utc)
+        inicio_dia = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+        # SQLite puede almacenar timestamps naive en UTC; comparamos sin tzinfo si hace falta
+        inicio_naive = inicio_dia.replace(tzinfo=None)
+        statement = (
+            select(func.count())
+            .select_from(Pedido)
+            .where(Pedido.created_at >= inicio_naive)
+        )
+        return int(self.session.exec(statement).one())
+
+    def sum_ingresos_entregados(self) -> float:
+        statement = select(func.coalesce(func.sum(Pedido.total), 0.0)).where(
+            Pedido.estado == "ENTREGADO"
+        )
+        resultado = self.session.exec(statement).one()
+        return round(float(resultado or 0.0), 2)
+
+    def refresh(self, pedido: Pedido) -> Pedido:
+        self.session.refresh(pedido)
+        return pedido

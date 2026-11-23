@@ -1,248 +1,209 @@
-"""Service para el módulo de pedidos con máquina de estados y reglas de negocio."""
-
-from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from app.core.database import session_factory
-from app.modules.pedidos.enums import EstadoPedido
 from app.modules.pedidos.models import DetallePedido, Pedido
 from app.modules.pedidos.schemas import (
-    CambioEstado,
-    DetallePedidoRead,
-    PedidoAjeno,
+    EstadoPedido,
     PedidoCreate,
-    PedidoInvalido,
-    PedidoNoEncontrado,
     PedidoRead,
     PedidosPaginados,
-    ProductoNoDisponible,
-    ProductoRepetido,
     ResumenPedidos,
-    StockInsuficiente,
-    TransicionInvalida,
 )
 from app.modules.pedidos.unit_of_work import PedidoUnitOfWork
 
-# Mapa de transiciones válidas de la máquina de estados (RN-02)
-TRANSICIONES = {
-    EstadoPedido.PENDIENTE: [EstadoPedido.EN_PREPARACION, EstadoPedido.CANCELADO],
-    EstadoPedido.EN_PREPARACION: [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
-    EstadoPedido.ENTREGADO: [],
-    EstadoPedido.CANCELADO: [],
+
+class PedidoNoEncontrado(Exception):
+    pass
+
+
+class PedidoAjeno(Exception):
+    pass
+
+
+class ProductoNoEncontrado(Exception):
+    pass
+
+
+class ProductoNoDisponible(Exception):
+    pass
+
+
+class StockInsuficiente(Exception):
+    pass
+
+
+class ProductoRepetido(Exception):
+    pass
+
+
+class TransicionInvalida(Exception):
+    pass
+
+
+TRANSICIONES_VALIDAS: dict[str, set[str]] = {
+    "PENDIENTE": {"EN_PREPARACION", "CANCELADO"},
+    "EN_PREPARACION": {"ENTREGADO", "CANCELADO"},
+    "ENTREGADO": set(),
+    "CANCELADO": set(),
 }
 
 
 class PedidoService:
-    """Lógica de negocio para la gestión de pedidos."""
+    def __init__(self, uow: PedidoUnitOfWork) -> None:
+        self.uow = uow
 
-    def __init__(self, uow: PedidoUnitOfWork | None = None):
-        self.uow = uow or PedidoUnitOfWork(session_factory)
-
-    def create_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoRead:
-        """
-        Crea un pedido con sus líneas, descuenta stock y copia nombre/precio.
-        RN-01: al menos un ítem, sin productos repetidos, stock suficiente.
-        """
-        if not data.items:
-            raise PedidoInvalido("El pedido debe tener al menos un ítem")
-
-        producto_ids = [item.producto_id for item in data.items]
-        if len(producto_ids) != len(set(producto_ids)):
-            raise ProductoRepetido("No se pueden repetir productos en el mismo pedido")
+    def crear_pedido(self, usuario_id: int, data: PedidoCreate) -> PedidoRead:
+        ids_productos = [item.producto_id for item in data.items]
+        if len(ids_productos) != len(set(ids_productos)):
+            raise ProductoRepetido(
+                "No se permiten productos repetidos en el mismo pedido."
+            )
 
         with self.uow as uow:
-            lineas: list[DetallePedido] = []
-            total = 0.0
+            ahora = datetime.now(timezone.utc)
+            pedido = Pedido(
+                usuario_id=usuario_id,
+                estado="PENDIENTE",
+                forma_pago=data.forma_pago,
+                direccion_entrega=data.direccion_entrega.strip(),
+                notas=data.notas.strip() if data.notas else None,
+                total=0.0,
+                created_at=ahora,
+                updated_at=ahora,
+            )
+            uow.pedidos.add(pedido)
 
+            total = 0.0
             for item in data.items:
                 producto = uow.productos.get_by_id(item.producto_id)
                 if producto is None or not producto.activo:
-                    raise PedidoNoEncontrado(f"El producto {item.producto_id} no existe")
+                    raise ProductoNoEncontrado(
+                        f"El producto con id {item.producto_id} no existe o está inactivo."
+                    )
                 if not producto.disponible:
-                    raise ProductoNoDisponible(f"El producto {producto.nombre} no está disponible")
+                    raise ProductoNoDisponible(
+                        f"El producto '{producto.nombre}' no está disponible."
+                    )
                 if producto.stock < item.cantidad:
                     raise StockInsuficiente(
-                        f"Stock insuficiente para {producto.nombre} "
-                        f"(disponible: {producto.stock}, solicitado: {item.cantidad})"
+                        f"Stock insuficiente para '{producto.nombre}'. "
+                        f"Disponible: {producto.stock}, solicitado: {item.cantidad}."
                     )
 
                 producto.stock -= item.cantidad
-                uow.productos.save(producto)
+                uow.productos.add(producto)
 
-                subtotal = producto.precio_base * item.cantidad
-                total += subtotal
-
+                subtotal = round(producto.precio_base * item.cantidad, 2)
                 detalle = DetallePedido(
-                    pedido_id=0,
-                    producto_id=producto.id,
+                    pedido_id=pedido.id,  # type: ignore[arg-type]
+                    producto_id=producto.id,  # type: ignore[arg-type]
                     cantidad=item.cantidad,
                     nombre_producto=producto.nombre,
                     precio_unitario=producto.precio_base,
                     subtotal=subtotal,
                 )
-                lineas.append(detalle)
+                uow.pedidos.add_detalle(detalle)
+                total += subtotal
 
-            pedido = Pedido(
-                usuario_id=usuario_id,
-                forma_pago=data.forma_pago,
-                direccion_entrega=data.direccion_entrega,
-                notas=data.notas,
-                total=total,
-            )
+            pedido.total = round(total, 2)
             uow.pedidos.add(pedido)
 
-            for detalle in lineas:
-                detalle.pedido_id = pedido.id
-                uow.detalle_pedidos.add(detalle)
-
-            return self._build_pedido_read(pedido, lineas)
-
-    def get_pedido(
-        self,
-        pedido_id: int,
-        usuario_id: int | None = None,
-        role: str = "admin",
-    ) -> PedidoRead:
-        """Obtiene un pedido con sus líneas validando permisos por dueño o rol (RN-04)."""
-        with self.uow as uow:
-            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
-            pedido = (
-                get_with_items(pedido_id)
-                if callable(get_with_items)
-                else uow.pedidos.get_by_id(pedido_id)
+            pedido_cargado = uow.pedidos.get_by_id_with_items(
+                pedido.id  # type: ignore[arg-type]
             )
-            if pedido is None:
-                raise PedidoNoEncontrado("Pedido no encontrado")
+            return PedidoRead.model_validate(pedido_cargado)
 
-            if usuario_id is not None and role != "admin" and pedido.usuario_id != usuario_id:
-                raise PedidoAjeno("No tienes permiso para ver este pedido")
-
-            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido.id)
-            return self._build_pedido_read(pedido, lineas)
-
-    def list_pedidos(
+    def listar_pedidos(
         self,
         usuario_id: int,
-        role: str,
+        rol: str,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 20,
         estado: EstadoPedido | None = None,
     ) -> PedidosPaginados:
-        """
-        Lista pedidos: propios si es user, todos si es admin.
-        Usa selectinload en el repositorio para evitar consultas N+1.
-        """
+        filtro_usuario = None if rol == "admin" else usuario_id
         with self.uow as uow:
-            if role == "admin":
-                total, pedidos = uow.pedidos.get_all_admin(skip=skip, limit=limit, estado=estado)
-            else:
-                total, pedidos = uow.pedidos.get_by_user(
-                    usuario_id, skip=skip, limit=limit, estado=estado
-                )
-            items = [
-                self._build_pedido_read(
-                    p,
-                    p.items if p.items else uow.detalle_pedidos.get_by_pedido(p.id),
-                )
-                for p in pedidos
-            ]
-            return PedidosPaginados(total=total, items=items)
-
-    def get_resumen(self) -> ResumenPedidos:
-        """Devuelve el resumen de pedidos para el panel de administración."""
-        with self.uow as uow:
-            counts = uow.pedidos.get_counts_by_state()
-            return ResumenPedidos(
-                pendientes=counts.get(EstadoPedido.PENDIENTE, 0),
-                en_preparacion=counts.get(EstadoPedido.EN_PREPARACION, 0),
-                entregados=counts.get(EstadoPedido.ENTREGADO, 0),
-                cancelados=counts.get(EstadoPedido.CANCELADO, 0),
-                pedidos_hoy=uow.pedidos.get_today_count(),
-                ingresos_entregados=uow.pedidos.get_delivered_revenue(),
+            total, pedidos = uow.pedidos.list_by_usuario(
+                usuario_id=filtro_usuario,
+                estado=estado,
+                skip=skip,
+                limit=limit,
+            )
+            return PedidosPaginados(
+                total=total,
+                items=[PedidoRead.model_validate(p) for p in pedidos],
             )
 
-    def cancelar_pedido(self, pedido_id: int, usuario_id: int) -> PedidoRead:
-        """
-        Cancela un pedido propio en estado PENDIENTE.
-        RN-03: cancelar restituye stock.
-        """
+    def obtener_pedido(
+        self, pedido_id: int, usuario_id: int, rol: str
+    ) -> PedidoRead:
         with self.uow as uow:
-            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
-            pedido = (
-                get_with_items(pedido_id)
-                if callable(get_with_items)
-                else uow.pedidos.get_by_id(pedido_id)
-            )
+            pedido = uow.pedidos.get_by_id_with_items(pedido_id)
             if pedido is None:
-                raise PedidoNoEncontrado("Pedido no encontrado")
+                raise PedidoNoEncontrado("Pedido no encontrado.")
+            if rol != "admin" and pedido.usuario_id != usuario_id:
+                raise PedidoAjeno("No tenés permiso para ver este pedido.")
+            return PedidoRead.model_validate(pedido)
 
-            if pedido.usuario_id != usuario_id:
-                raise PedidoAjeno("No tienes permiso para cancelar este pedido")
-
-            if pedido.estado != EstadoPedido.PENDIENTE:
-                raise TransicionInvalida("Solo se pueden cancelar pedidos en estado PENDIENTE")
-
-            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido_id)
-            for linea in lineas:
-                producto = uow.productos.get_by_id(linea.producto_id)
-                if producto:
-                    producto.stock += linea.cantidad
-                    uow.productos.save(producto)
-
-            pedido.estado = EstadoPedido.CANCELADO
-            pedido.updated_at = datetime.now(timezone.utc)
-            uow.pedidos.save(pedido)
-
-            return self._build_pedido_read(pedido, lineas)
-
-    def update_estado_admin(self, pedido_id: int, data: CambioEstado) -> PedidoRead:
-        """
-        Cambia el estado de un pedido (solo admin).
-        RN-02: solo transiciones válidas.
-        RN-03: cancelar restituye stock.
-        """
+    def cambiar_estado(
+        self, pedido_id: int, nuevo_estado: EstadoPedido
+    ) -> PedidoRead:
         with self.uow as uow:
-            get_with_items = getattr(uow.pedidos, "get_by_id_with_items", None)
-            pedido = (
-                get_with_items(pedido_id)
-                if callable(get_with_items)
-                else uow.pedidos.get_by_id(pedido_id)
-            )
+            pedido = uow.pedidos.get_by_id_with_items(pedido_id)
             if pedido is None:
-                raise PedidoNoEncontrado("Pedido no encontrado")
+                raise PedidoNoEncontrado("Pedido no encontrado.")
 
-            allowed = TRANSICIONES.get(pedido.estado, [])
-            if data.estado not in allowed:
+            permitidos = TRANSICIONES_VALIDAS.get(pedido.estado, set())
+            if nuevo_estado not in permitidos:
                 raise TransicionInvalida(
-                    f"No se puede cambiar de {pedido.estado.value} a {data.estado.value}"
+                    f"No se puede pasar un pedido de '{pedido.estado}' a '{nuevo_estado}'."
                 )
 
-            lineas = pedido.items if pedido.items else uow.detalle_pedidos.get_by_pedido(pedido_id)
+            if nuevo_estado == "CANCELADO":
+                self._restituir_stock(uow, pedido)
 
-            if data.estado == EstadoPedido.CANCELADO:
-                for linea in lineas:
-                    producto = uow.productos.get_by_id(linea.producto_id)
-                    if producto:
-                        producto.stock += linea.cantidad
-                        uow.productos.save(producto)
-
-            pedido.estado = data.estado
+            pedido.estado = nuevo_estado
             pedido.updated_at = datetime.now(timezone.utc)
-            uow.pedidos.save(pedido)
+            uow.pedidos.add(pedido)
+            return PedidoRead.model_validate(pedido)
 
-            return self._build_pedido_read(pedido, lineas)
+    def cancelar_pedido_propio(
+        self, pedido_id: int, usuario_id: int
+    ) -> PedidoRead:
+        with self.uow as uow:
+            pedido = uow.pedidos.get_by_id_with_items(pedido_id)
+            if pedido is None:
+                raise PedidoNoEncontrado("Pedido no encontrado.")
+            if pedido.usuario_id != usuario_id:
+                raise PedidoAjeno("No tenés permiso para cancelar este pedido.")
+            if pedido.estado != "PENDIENTE":
+                raise TransicionInvalida(
+                    "Solo se pueden cancelar pedidos en estado PENDIENTE."
+                )
 
-    def _build_pedido_read(self, pedido: Pedido, lineas: Sequence[DetallePedido]) -> PedidoRead:
-        """Construye un PedidoRead con sus líneas."""
-        return PedidoRead(
-            id=pedido.id,
-            usuario_id=pedido.usuario_id,
-            estado=pedido.estado,
-            forma_pago=pedido.forma_pago,
-            direccion_entrega=pedido.direccion_entrega,
-            notas=pedido.notas,
-            total=pedido.total,
-            created_at=pedido.created_at,
-            updated_at=pedido.updated_at,
-            items=[DetallePedidoRead.model_validate(linea) for linea in lineas],
-        )
+            self._restituir_stock(uow, pedido)
+            pedido.estado = "CANCELADO"
+            pedido.updated_at = datetime.now(timezone.utc)
+            uow.pedidos.add(pedido)
+            return PedidoRead.model_validate(pedido)
+
+    def obtener_resumen(self) -> ResumenPedidos:
+        with self.uow as uow:
+            conteos = uow.pedidos.count_by_estado()
+            pedidos_hoy = uow.pedidos.count_pedidos_hoy()
+            ingresos_entregados = uow.pedidos.sum_ingresos_entregados()
+            return ResumenPedidos(
+                pendientes=conteos.get("PENDIENTE", 0),
+                en_preparacion=conteos.get("EN_PREPARACION", 0),
+                entregados=conteos.get("ENTREGADO", 0),
+                cancelados=conteos.get("CANCELADO", 0),
+                pedidos_hoy=pedidos_hoy,
+                ingresos_entregados=ingresos_entregados,
+            )
+
+    @staticmethod
+    def _restituir_stock(uow: PedidoUnitOfWork, pedido: Pedido) -> None:
+        for detalle in pedido.items:
+            producto = uow.productos.get_by_id(detalle.producto_id)
+            if producto is not None:
+                producto.stock += detalle.cantidad
+                uow.productos.add(producto)

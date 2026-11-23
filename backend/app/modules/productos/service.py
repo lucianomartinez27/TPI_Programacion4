@@ -1,12 +1,6 @@
-"""Service para el módulo de productos."""
-
-from app.core.database import session_factory
-from app.modules.categorias.models import Categoria
-from app.modules.categorias.schemas import CategoriaRead
 from app.modules.productos.models import Producto
 from app.modules.productos.schemas import (
     ProductoCreate,
-    ProductoNoEncontrado,
     ProductoRead,
     ProductosPaginados,
     ProductoStockUpdate,
@@ -15,54 +9,26 @@ from app.modules.productos.schemas import (
 from app.modules.productos.unit_of_work import ProductoUnitOfWork
 
 
+class ProductoNoEncontrado(Exception):
+    pass
+
+
+class CategoriaNoEncontrada(Exception):
+    pass
+
+
 class ProductoService:
-    """Lógica de negocio para la gestión de productos.
+    def __init__(self, uow: ProductoUnitOfWork) -> None:
+        self.uow = uow
 
-    Recibe el Unit of Work por inyección de dependencias y delega todo
-    el acceso a datos en los repositorios que este expone.
-    """
-
-    def __init__(self, uow: ProductoUnitOfWork | None = None):
-        self.uow = uow or ProductoUnitOfWork(session_factory)
-
-    def create_producto(self, data: ProductoCreate) -> ProductoRead:
-        """Crea un nuevo producto."""
-        with self.uow as uow:
-            categoria = uow.categorias.get_by_id(data.categoria_id)
-            if categoria is None or not categoria.activo:
-                raise ProductoNoEncontrado("La categoría especificada no existe o no está activa")
-
-            producto = Producto(
-                categoria_id=data.categoria_id,
-                nombre=data.nombre,
-                descripcion=data.descripcion,
-                precio_base=data.precio_base,
-                imagen_url=data.imagen_url,
-                stock=data.stock,
-                disponible=data.disponible,
-            )
-            uow.productos.add(producto)
-            return self._build_producto_read(producto, categoria)
-
-    def get_producto(self, producto_id: int) -> ProductoRead:
-        """Obtiene un producto por su ID con su categoría precargada."""
-        with self.uow as uow:
-            get_with_cat = getattr(uow.productos, "get_by_id_with_categoria", None)
-            producto = get_with_cat(producto_id) if callable(get_with_cat) else uow.productos.get_by_id(producto_id)
-            if producto is None or not producto.activo:
-                raise ProductoNoEncontrado("Producto no encontrado")
-            categoria = producto.categoria or uow.categorias.get_by_id(producto.categoria_id)
-            return self._build_producto_read(producto, categoria)
-
-    def list_productos(
+    def listar(
         self,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 20,
         search: str | None = None,
         categoria_id: int | None = None,
         disponible: bool | None = None,
     ) -> ProductosPaginados:
-        """Lista los productos con filtros y paginación sin N+1 (usa selectinload)."""
         with self.uow as uow:
             total, productos = uow.productos.search(
                 skip=skip,
@@ -71,71 +37,97 @@ class ProductoService:
                 categoria_id=categoria_id,
                 disponible=disponible,
             )
-            items = [
-                self._build_producto_read(
-                    p,
-                    p.categoria if p.categoria is not None else uow.categorias.get_by_id(p.categoria_id),
+            return ProductosPaginados(
+                total=total,
+                items=[ProductoRead.model_validate(p) for p in productos],
+            )
+
+    def obtener_por_id(self, producto_id: int) -> ProductoRead:
+        with self.uow as uow:
+            producto = uow.productos.get_by_id_with_categoria(producto_id)
+            if producto is None or not producto.activo:
+                raise ProductoNoEncontrado("Producto no encontrado.")
+            return ProductoRead.model_validate(producto)
+
+    def crear(self, data: ProductoCreate) -> ProductoRead:
+        with self.uow as uow:
+            categoria = uow.categorias.get_by_id(data.categoria_id)
+            if categoria is None or not categoria.activo:
+                raise CategoriaNoEncontrada(
+                    "La categoría indicada no existe o está dada de baja."
                 )
-                for p in productos
-            ]
-            return ProductosPaginados(total=total, items=items)
 
-    def update_producto(self, producto_id: int, data: ProductoUpdate) -> ProductoRead:
-        """Actualiza un producto (actualización parcial)."""
+            producto = Producto(
+                nombre=data.nombre.strip(),
+                descripcion=data.descripcion.strip(),
+                precio_base=data.precio_base,
+                imagen_url=data.imagen_url.strip(),
+                stock=data.stock,
+                disponible=data.disponible,
+                categoria_id=data.categoria_id,
+                activo=True,
+            )
+            uow.productos.add(producto)
+            producto_cargado = uow.productos.get_by_id_with_categoria(
+                producto.id  # type: ignore[arg-type]
+            )
+            return ProductoRead.model_validate(producto_cargado)
+
+    def actualizar(
+        self, producto_id: int, data: ProductoUpdate
+    ) -> ProductoRead:
+        cambios = data.model_dump(exclude_unset=True)
         with self.uow as uow:
-            producto = uow.productos.get_by_id(producto_id)
+            producto = uow.productos.get_by_id_with_categoria(producto_id)
             if producto is None or not producto.activo:
-                raise ProductoNoEncontrado("Producto no encontrado")
+                raise ProductoNoEncontrado("Producto no encontrado.")
 
-            update_data = data.model_dump(exclude_unset=True)
-            categoria: Categoria | None = None
-            if "categoria_id" in update_data:
-                categoria = uow.categorias.get_by_id(update_data["categoria_id"])
+            if "categoria_id" in cambios and cambios["categoria_id"] is not None:
+                categoria = uow.categorias.get_by_id(cambios["categoria_id"])
                 if categoria is None or not categoria.activo:
-                    raise ProductoNoEncontrado("La categoría especificada no existe o no está activa")
+                    raise CategoriaNoEncontrada(
+                        "La categoría indicada no existe o está dada de baja."
+                    )
+                producto.categoria_id = cambios["categoria_id"]
 
-            producto.sqlmodel_update(update_data)
-            uow.productos.save(producto)
-            if categoria is None:
-                categoria = uow.categorias.get_by_id(producto.categoria_id)
-            return self._build_producto_read(producto, categoria)
+            if "nombre" in cambios and cambios["nombre"] is not None:
+                producto.nombre = cambios["nombre"].strip()
+            if "descripcion" in cambios and cambios["descripcion"] is not None:
+                producto.descripcion = cambios["descripcion"].strip()
+            if "precio_base" in cambios and cambios["precio_base"] is not None:
+                producto.precio_base = cambios["precio_base"]
+            if "imagen_url" in cambios and cambios["imagen_url"] is not None:
+                producto.imagen_url = cambios["imagen_url"].strip()
+            if "stock" in cambios and cambios["stock"] is not None:
+                producto.stock = cambios["stock"]
+            if "disponible" in cambios and cambios["disponible"] is not None:
+                producto.disponible = cambios["disponible"]
 
-    def update_stock(self, producto_id: int, data: ProductoStockUpdate) -> ProductoRead:
-        """Actualiza el stock y la disponibilidad de un producto."""
+            uow.productos.add(producto)
+            uow.productos.refresh(producto)
+            producto_cargado = uow.productos.get_by_id_with_categoria(producto_id)
+            return ProductoRead.model_validate(producto_cargado)
+
+    def actualizar_stock(
+        self, producto_id: int, data: ProductoStockUpdate
+    ) -> ProductoRead:
         with self.uow as uow:
-            producto = uow.productos.get_by_id(producto_id)
+            producto = uow.productos.get_by_id_with_categoria(producto_id)
             if producto is None or not producto.activo:
-                raise ProductoNoEncontrado("Producto no encontrado")
+                raise ProductoNoEncontrado("Producto no encontrado.")
 
-            producto.stock = data.stock
+            if data.stock is not None:
+                producto.stock = data.stock
             if data.disponible is not None:
                 producto.disponible = data.disponible
-            else:
-                producto.disponible = data.stock > 0
-            uow.productos.save(producto)
-            categoria = uow.categorias.get_by_id(producto.categoria_id)
-            return self._build_producto_read(producto, categoria)
 
-    def delete_producto(self, producto_id: int) -> None:
-        """Desactiva un producto (baja lógica)."""
+            uow.productos.add(producto)
+            return ProductoRead.model_validate(producto)
+
+    def eliminar(self, producto_id: int) -> None:
         with self.uow as uow:
             producto = uow.productos.get_by_id(producto_id)
             if producto is None or not producto.activo:
-                raise ProductoNoEncontrado("Producto no encontrado")
+                raise ProductoNoEncontrado("Producto no encontrado.")
             producto.activo = False
-            uow.productos.save(producto)
-
-    def _build_producto_read(self, producto: Producto, categoria: Categoria | None) -> ProductoRead:
-        """Construye un ProductoRead con su categoría."""
-        return ProductoRead(
-            id=producto.id,
-            categoria_id=producto.categoria_id,
-            nombre=producto.nombre,
-            descripcion=producto.descripcion,
-            precio_base=producto.precio_base,
-            imagen_url=producto.imagen_url,
-            stock=producto.stock,
-            disponible=producto.disponible,
-            activo=producto.activo,
-            categoria=CategoriaRead.model_validate(categoria) if categoria else None,
-        )
+            uow.productos.add(producto)
