@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, ExternalLink, Package, XCircle } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Card } from '../../../shared/ui/Card';
-import { Button } from '../../../shared/ui/Button';
-import { BadgeEstado } from '../../../shared/ui/BadgeEstado';
-import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '../../../shared/components';
-import { useCancelarPedidoMutation, usePedidos } from '../hooks/useOrders';
-import { EstadoPedido } from '../../../shared/api/types';
-import { estadoPedidoLabel, formaPagoLabel } from '../../../shared/api/labels';
-import { handleApiError } from '../../../shared/api/handleApiError';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { BadgeEstado } from '@/shared/ui/BadgeEstado';
+import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '@/shared/components';
+import { useCancelarPedidoMutation, usePedidos } from '@/features/orders/hooks/useOrders';
+import { EstadoPedido } from '@/shared/api/types';
+import { estadoPedidoLabel, formaPagoLabel } from '@/shared/api/labels';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 const LIMIT = 10;
 

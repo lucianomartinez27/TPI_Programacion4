@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, XCircle } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Card } from '../../../shared/ui/Card';
-import { Button } from '../../../shared/ui/Button';
-import { BadgeEstado } from '../../../shared/ui/BadgeEstado';
-import { EstadoError, Skeleton } from '../../../shared/components';
-import { useCancelarPedidoMutation, usePedido } from '../hooks/useOrders';
-import { EstadoPedido } from '../../../shared/api/types';
-import { formaPagoLabel } from '../../../shared/api/labels';
-import { handleApiError } from '../../../shared/api/handleApiError';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { BadgeEstado } from '@/shared/ui/BadgeEstado';
+import { EstadoError, Skeleton } from '@/shared/components';
+import { useCancelarPedidoMutation, usePedido } from '@/features/orders/hooks/useOrders';
+import { EstadoPedido } from '@/shared/api/types';
+import { formaPagoLabel } from '@/shared/api/labels';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 export function PedidoDetailPage() {
   const { id } = useParams<{ id: string }>();

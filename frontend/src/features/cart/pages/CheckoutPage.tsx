@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
 import { ArrowRight, ShoppingCart } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Card } from '../../../shared/ui/Card';
-import { Button } from '../../../shared/ui/Button';
-import { Input } from '../../../shared/ui/Input';
-import { EstadoVacio } from '../../../shared/components';
-import { selectCartTotal, useCartStore } from '../../../store/cartStore';
-import { useCreatePedidoMutation } from '../hooks/useCartMutations';
-import { FormaPago } from '../../../shared/api/types';
-import { handleApiError } from '../../../shared/api/handleApiError';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { EstadoVacio } from '@/shared/components';
+import { selectCartTotal, useCartStore } from '@/store/cartStore';
+import { useCreatePedidoMutation } from '@/features/cart/hooks/useCartMutations';
+import { FormaPago } from '@/shared/api/types';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 interface CheckoutFormValues {
   direccion_entrega: string;

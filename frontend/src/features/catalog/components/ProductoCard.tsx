@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import type { ProductoRead } from '../../../shared/api/types';
-import { useCartStore } from '../../../store/cartStore';
-import { Button } from '../../../shared/ui/Button';
-import { Card } from '../../../shared/ui/Card';
+import type { ProductoRead } from '@/shared/api/types';
+import { useCartStore } from '@/store/cartStore';
+import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 
 interface ProductoCardProps {
   producto: ProductoRead;

@@ -1,6 +1,6 @@
 import type { AxiosError } from 'axios';
-import { api } from './axiosInstance';
-import { useAuthStore } from '../../store/authStore';
+import { api } from '@/shared/api/axiosInstance';
+import { useAuthStore } from '@/store/authStore';
 
 let initialized = false;
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getCategorias, getProducto, listProductos } from '../api/catalogApi';
+import { getCategorias, getProducto, listProductos } from '@/features/catalog/api/catalogApi';
 
 export const PRODUCTOS_KEY = ['productos'];
 export const CATEGORIAS_KEY = ['categorias'];

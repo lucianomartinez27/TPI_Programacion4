@@ -1,16 +1,16 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { LoginPage, RegisterPage, UnauthorizedPage } from '../features/auth';
-import { CatalogPage, ProductoDetailPage } from '../features/catalog';
-import { CartPage, CheckoutPage } from '../features/cart';
-import { OrdersPage, PedidoDetailPage } from '../features/orders';
+import { LoginPage, RegisterPage, UnauthorizedPage } from '@/features/auth';
+import { CatalogPage, ProductoDetailPage } from '@/features/catalog';
+import { CartPage, CheckoutPage } from '@/features/cart';
+import { OrdersPage, PedidoDetailPage } from '@/features/orders';
 import {
   AdminCategoriasPage,
   AdminPedidosPage,
   AdminProductosPage,
   AdminResumenPage,
   AdminUsuariosPage,
-} from '../features/admin';
-import { ProtectedRoute } from './ProtectedRoute';
+} from '@/features/admin';
+import { ProtectedRoute } from '@/routes/ProtectedRoute';
 
 export function AppRouter() {
   return (

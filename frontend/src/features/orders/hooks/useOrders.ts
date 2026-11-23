@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { cancelarPedido, getPedido, listPedidos } from '../api/ordersApi';
-import { EstadoPedido } from '../../../shared/api/types';
-import { useAuthStore } from '../../../store/authStore';
-import { PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
+import { cancelarPedido, getPedido, listPedidos } from '@/features/orders/api/ordersApi';
+import { EstadoPedido } from '@/shared/api/types';
+import { useAuthStore } from '@/store/authStore';
+import { PRODUCTOS_KEY } from '@/features/catalog/hooks/useCatalog';
 
 export const PEDIDOS_KEY = ['pedidos'];
 const ADMIN_PEDIDOS_KEY = ['admin', 'pedidos'];

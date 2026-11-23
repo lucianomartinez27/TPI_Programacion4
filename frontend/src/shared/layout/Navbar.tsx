@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User, Package, LogOut, Menu as MenuIcon, X } from 'lucide-react';
-import { useAuthStore } from '../../store/authStore';
-import { selectCartTotalItems, useCartStore } from '../../store/cartStore';
-import { useLogoutMutation } from '../../features/auth/hooks/useAuthMutations';
+import { useAuthStore } from '@/store/authStore';
+import { selectCartTotalItems, useCartStore } from '@/store/cartStore';
+import { useLogoutMutation } from '@/features/auth/hooks/useAuthMutations';
 
 export function Navbar() {
   const user = useAuthStore((s) => s.user);

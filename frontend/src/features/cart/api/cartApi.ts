@@ -1,6 +1,6 @@
-import api from '../../../shared/api/axiosInstance';
-import type { PedidoRead, PedidosPaginados, ResumenPedidos } from '../../../shared/api/types';
-import { EstadoPedido, FormaPago } from '../../../shared/api/types';
+import api from '@/shared/api/axiosInstance';
+import type { PedidoRead, PedidosPaginados, ResumenPedidos } from '@/shared/api/types';
+import { EstadoPedido, FormaPago } from '@/shared/api/types';
 
 export interface PedidoCreateData {
   forma_pago: FormaPago;

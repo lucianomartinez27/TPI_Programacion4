@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { Role, UserRead } from '../shared/api/types';
-import { queryClient } from '../shared/api/queryClient';
-import { getMe, login as loginApi, logout as logoutApi } from '../features/auth/api/authApi';
+import type { Role, UserRead } from '@/shared/api/types';
+import { queryClient } from '@/shared/api/queryClient';
+import { getMe, login as loginApi, logout as logoutApi } from '@/features/auth/api/authApi';
 
 export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 

@@ -1,9 +1,9 @@
 import { CheckCircle, ChefHat, Clock, DollarSign, TrendingUp, XCircle } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
-import { Card } from '../../../shared/ui/Card';
-import { EstadoError, Skeleton } from '../../../shared/components';
-import { useResumenPedidos } from '../hooks/useAdmin';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { AdminSidebar } from '@/shared/layout/AdminSidebar';
+import { Card } from '@/shared/ui/Card';
+import { EstadoError, Skeleton } from '@/shared/components';
+import { useResumenPedidos } from '@/features/admin/hooks/useAdmin';
 
 export function AdminResumenPage() {
   const { data, isLoading, isError, error, refetch } = useResumenPedidos();

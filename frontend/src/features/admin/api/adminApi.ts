@@ -1,6 +1,6 @@
-import api from '../../../shared/api/axiosInstance';
-import type { PedidoRead, PedidosPaginados, ResumenPedidos, UsuarioListRead } from '../../../shared/api/types';
-import { EstadoPedido } from '../../../shared/api/types';
+import api from '@/shared/api/axiosInstance';
+import type { PedidoRead, PedidosPaginados, ResumenPedidos, UsuarioListRead } from '@/shared/api/types';
+import { EstadoPedido } from '@/shared/api/types';
 
 // Pedidos admin
 export async function listAllPedidos(

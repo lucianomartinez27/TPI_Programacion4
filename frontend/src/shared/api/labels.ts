@@ -1,4 +1,4 @@
-import { EstadoPedido, FormaPago } from '../api/types';
+import { EstadoPedido, FormaPago } from '@/shared/api/types';
 
 export const estadoPedidoLabel: Record<EstadoPedido, string> = {
   [EstadoPedido.PENDIENTE]: 'Pendiente',

@@ -6,17 +6,17 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Eye, Package } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
-import { Card } from '../../../shared/ui/Card';
-import { BadgeEstado } from '../../../shared/ui/BadgeEstado';
-import { Modal } from '../../../shared/ui/Modal';
-import { Button } from '../../../shared/ui/Button';
-import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '../../../shared/components';
-import { useAdminPedidos, useUpdateEstadoPedidoMutation } from '../hooks/useAdmin';
-import { EstadoPedido, type PedidoRead } from '../../../shared/api/types';
-import { estadoPedidoLabel, formaPagoLabel } from '../../../shared/api/labels';
-import { handleApiError } from '../../../shared/api/handleApiError';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { AdminSidebar } from '@/shared/layout/AdminSidebar';
+import { Card } from '@/shared/ui/Card';
+import { BadgeEstado } from '@/shared/ui/BadgeEstado';
+import { Modal } from '@/shared/ui/Modal';
+import { Button } from '@/shared/ui/Button';
+import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '@/shared/components';
+import { useAdminPedidos, useUpdateEstadoPedidoMutation } from '@/features/admin/hooks/useAdmin';
+import { EstadoPedido, type PedidoRead } from '@/shared/api/types';
+import { estadoPedidoLabel, formaPagoLabel } from '@/shared/api/labels';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 const LIMIT = 10;
 const EMPTY_PEDIDOS: PedidoRead[] = [];

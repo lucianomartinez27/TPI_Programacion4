@@ -1,11 +1,11 @@
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Card } from '../../../shared/ui/Card';
-import { Button } from '../../../shared/ui/Button';
-import { EstadoError, Skeleton } from '../../../shared/components';
-import { useProducto } from '../hooks/useCatalog';
-import { useCartStore } from '../../../store/cartStore';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { EstadoError, Skeleton } from '@/shared/components';
+import { useProducto } from '@/features/catalog/hooks/useCatalog';
+import { useCartStore } from '@/store/cartStore';
 
 export function ProductoDetailPage() {
   const { id } = useParams<{ id: string }>();

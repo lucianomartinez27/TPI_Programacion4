@@ -1,5 +1,5 @@
-import api from '../../../shared/api/axiosInstance';
-import type { ProductoRead, ProductosPaginados, CategoriaRead } from '../../../shared/api/types';
+import api from '@/shared/api/axiosInstance';
+import type { ProductoRead, ProductosPaginados, CategoriaRead } from '@/shared/api/types';
 
 export async function listProductos(
   skip = 0,

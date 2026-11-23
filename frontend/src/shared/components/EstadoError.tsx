@@ -1,6 +1,6 @@
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { handleApiError } from '../api/handleApiError';
+import { Button } from '@/shared/ui/Button';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 interface EstadoErrorProps {
   error?: unknown;

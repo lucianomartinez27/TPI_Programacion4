@@ -1,5 +1,5 @@
-import api from '../../../shared/api/axiosInstance';
-import type { UserRead, UsuarioListRead } from '../../../shared/api/types';
+import api from '@/shared/api/axiosInstance';
+import type { UserRead, UsuarioListRead } from '@/shared/api/types';
 
 export async function login(username: string, password: string) {
   const formData = new URLSearchParams();

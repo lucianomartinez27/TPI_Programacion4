@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Search } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { useCategorias, useProductos } from '../hooks/useCatalog';
-import { ProductoCard } from '../components/ProductoCard';
-import { Input } from '../../../shared/ui/Input';
-import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '../../../shared/components';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { useCategorias, useProductos } from '@/features/catalog/hooks/useCatalog';
+import { ProductoCard } from '@/features/catalog/components/ProductoCard';
+import { Input } from '@/shared/ui/Input';
+import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '@/shared/components';
 
 const LIMIT = 12;
 

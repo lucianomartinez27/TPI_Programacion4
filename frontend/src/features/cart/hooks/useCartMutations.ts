@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCartStore } from '../../../store/cartStore';
-import { createPedido } from '../api/cartApi';
-import type { FormaPago } from '../../../shared/api/types';
-import { PEDIDOS_KEY } from '../../orders/hooks/useOrders';
-import { PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
-import { ADMIN_PEDIDOS_KEY, RESUMEN_KEY } from '../../admin/hooks/useAdmin';
+import { useCartStore } from '@/store/cartStore';
+import { createPedido } from '@/features/cart/api/cartApi';
+import type { FormaPago } from '@/shared/api/types';
+import { PEDIDOS_KEY } from '@/features/orders/hooks/useOrders';
+import { PRODUCTOS_KEY } from '@/features/catalog/hooks/useCatalog';
+import { ADMIN_PEDIDOS_KEY, RESUMEN_KEY } from '@/features/admin/hooks/useAdmin';
 
 export function useCreatePedidoMutation() {
   const qc = useQueryClient();

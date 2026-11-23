@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Card } from '../../../shared/ui/Card';
-import { Button } from '../../../shared/ui/Button';
-import { EstadoVacio } from '../../../shared/components';
-import { selectCartTotal, useCartStore } from '../../../store/cartStore';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Card } from '@/shared/ui/Card';
+import { Button } from '@/shared/ui/Button';
+import { EstadoVacio } from '@/shared/components';
+import { selectCartTotal, useCartStore } from '@/store/cartStore';
 
 export function CartPage() {
   const items = useCartStore((s) => s.items);

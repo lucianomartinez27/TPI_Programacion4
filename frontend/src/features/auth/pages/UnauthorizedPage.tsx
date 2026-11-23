@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Button } from '../../../shared/ui/Button';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Button } from '@/shared/ui/Button';
 import { ShieldAlert } from 'lucide-react';
 
 export function UnauthorizedPage() {

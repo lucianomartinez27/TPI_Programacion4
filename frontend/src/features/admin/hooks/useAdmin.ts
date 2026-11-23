@@ -6,7 +6,7 @@ import {
   listAllPedidos,
   listUsers,
   updateEstadoPedido,
-} from '../api/adminApi';
+} from '@/features/admin/api/adminApi';
 import {
   createCategoria,
   createProducto,
@@ -16,10 +16,10 @@ import {
   updateCategoria,
   updateProducto,
   updateStock,
-} from '../../catalog/api/catalogApi';
-import { EstadoPedido } from '../../../shared/api/types';
-import { CATEGORIAS_KEY, PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
-import { PEDIDOS_KEY } from '../../orders/hooks/useOrders';
+} from '@/features/catalog/api/catalogApi';
+import { EstadoPedido } from '@/shared/api/types.ts';
+import { CATEGORIAS_KEY, PRODUCTOS_KEY } from '@/features/catalog';
+import { PEDIDOS_KEY } from '@/features/orders';
 
 export const RESUMEN_KEY = ['resumen'];
 export const ADMIN_PEDIDOS_KEY = ['admin', 'pedidos'];

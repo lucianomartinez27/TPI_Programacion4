@@ -8,18 +8,18 @@ import {
   type PaginationState,
 } from '@tanstack/react-table';
 import { UserCheck, UserX } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
-import { Button } from '../../../shared/ui/Button';
-import { EstadoError, EstadoVacio, Skeleton } from '../../../shared/components';
-import { useAuthStore } from '../../../store/authStore';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { AdminSidebar } from '@/shared/layout/AdminSidebar';
+import { Button } from '@/shared/ui/Button';
+import { EstadoError, EstadoVacio, Skeleton } from '@/shared/components';
+import { useAuthStore } from '@/store/authStore';
 import {
   useActivateUserMutation,
   useDeactivateUserMutation,
   useUsuarios,
-} from '../hooks/useAdmin';
-import type { UsuarioListRead } from '../../../shared/api/types';
-import { handleApiError } from '../../../shared/api/handleApiError';
+} from '@/features/admin/hooks/useAdmin';
+import type { UsuarioListRead } from '@/shared/api/types';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 const EMPTY_USUARIOS: UsuarioListRead[] = [];
 const columnHelper = createColumnHelper<UsuarioListRead>();

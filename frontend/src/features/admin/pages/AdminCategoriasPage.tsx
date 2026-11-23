@@ -9,20 +9,20 @@ import {
   type PaginationState,
 } from '@tanstack/react-table';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
-import { Button } from '../../../shared/ui/Button';
-import { Input } from '../../../shared/ui/Input';
-import { Modal } from '../../../shared/ui/Modal';
-import { EstadoError, EstadoVacio, Skeleton } from '../../../shared/components';
+import { MainLayout } from '@/shared/layout/MainLayout.tsx';
+import { AdminSidebar } from '@/shared/layout/AdminSidebar.tsx';
+import { Button } from '@/shared/ui/Button.tsx';
+import { Input } from '@/shared/ui/Input.tsx';
+import { Modal } from '@/shared/ui/Modal.tsx';
+import { EstadoError, EstadoVacio, Skeleton } from '@/shared/components';
 import {
   useAllCategorias,
   useCreateCategoriaMutation,
   useDeleteCategoriaMutation,
   useUpdateCategoriaMutation,
-} from '../hooks/useAdmin';
-import type { CategoriaRead } from '../../../shared/api/types';
-import { handleApiError } from '../../../shared/api/handleApiError';
+} from '@/features/admin/hooks/useAdmin';
+import type { CategoriaRead } from '@/shared/api/types.ts';
+import { handleApiError } from '@/shared/api/handleApiError.ts';
 
 interface CategoriaFormValues {
   nombre: string;

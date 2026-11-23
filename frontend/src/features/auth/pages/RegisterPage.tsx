@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
 import { Package } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { Input } from '../../../shared/ui/Input';
-import { Button } from '../../../shared/ui/Button';
-import { Card } from '../../../shared/ui/Card';
-import { useRegisterMutation } from '../hooks/useAuthMutations';
-import { handleApiError } from '../../../shared/api/handleApiError';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { Input } from '@/shared/ui/Input';
+import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
+import { useRegisterMutation } from '@/features/auth/hooks/useAuthMutations';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 interface RegisterFormValues {
   username: string;

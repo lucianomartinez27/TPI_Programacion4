@@ -1,8 +1,8 @@
-export { OrdersPage } from './pages/OrdersPage';
-export { PedidoDetailPage } from './pages/PedidoDetailPage';
+export { OrdersPage } from '@/features/orders/pages/OrdersPage';
+export { PedidoDetailPage } from '@/features/orders/pages/PedidoDetailPage';
 export {
   PEDIDOS_KEY,
   usePedidos,
   usePedido,
   useCancelarPedidoMutation,
-} from './hooks/useOrders';
+} from '@/features/orders/hooks/useOrders';

@@ -9,22 +9,22 @@ import {
   type PaginationState,
 } from '@tanstack/react-table';
 import { Boxes, Edit2, Plus, Trash2 } from 'lucide-react';
-import { MainLayout } from '../../../shared/layout/MainLayout';
-import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
-import { Button } from '../../../shared/ui/Button';
-import { Input } from '../../../shared/ui/Input';
-import { Modal } from '../../../shared/ui/Modal';
-import { EstadoError, EstadoVacio, Skeleton } from '../../../shared/components';
-import { useProductos } from '../../catalog';
+import { MainLayout } from '@/shared/layout/MainLayout';
+import { AdminSidebar } from '@/shared/layout/AdminSidebar';
+import { Button } from '@/shared/ui/Button';
+import { Input } from '@/shared/ui/Input';
+import { Modal } from '@/shared/ui/Modal';
+import { EstadoError, EstadoVacio, Skeleton } from '@/shared/components';
+import { useProductos } from '@/features/catalog';
 import {
   useAllCategorias,
   useCreateProductoMutation,
   useDeleteProductoMutation,
   useUpdateProductoMutation,
   useUpdateStockMutation,
-} from '../hooks/useAdmin';
-import type { ProductoRead } from '../../../shared/api/types';
-import { handleApiError } from '../../../shared/api/handleApiError';
+} from '@/features/admin/hooks/useAdmin';
+import type { ProductoRead } from '@/shared/api/types';
+import { handleApiError } from '@/shared/api/handleApiError';
 
 interface ProductFormValues {
   categoria_id: number;

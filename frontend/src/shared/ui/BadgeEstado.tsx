@@ -1,4 +1,4 @@
-import { EstadoPedido } from '../../shared/api/types';
+import { EstadoPedido } from '@/shared/api/types';
 
 interface BadgeEstadoProps {
   estado: EstadoPedido;
