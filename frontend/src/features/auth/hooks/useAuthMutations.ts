@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../../store/authStore';
 import { login, register, logout, getMe, updateProfile, changePassword } from '../api/authApi';
 import { throwApiError } from '../../../shared/api/handleApiError';
@@ -19,13 +19,16 @@ export function useMe() {
 
 export function useLoginMutation() {
   const setUser = useAuthStore((s) => s.setUser);
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       login(username, password),
     onSuccess: async () => {
+      qc.clear();
       try {
         const user = await getMe();
         setUser(user);
+        qc.setQueryData(ME_QUERY_KEY, user);
       } catch {
         // Si falla la carga del perfil tras login, se mantiene el flujo
       }
@@ -48,8 +51,12 @@ export function useRegisterMutation() {
 }
 
 export function useLogoutMutation() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => logout(),
+    onSettled: () => {
+      qc.clear();
+    },
   });
 }
 
