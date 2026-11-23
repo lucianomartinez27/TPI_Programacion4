@@ -6,7 +6,7 @@ import { ShoppingCart, User, Package, LogOut, Menu as MenuIcon, X } from 'lucide
 import { useState } from 'react';
 
 export function Navbar() {
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const totalItems = useCartStore((s) => s.totalItems());
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
@@ -15,9 +15,11 @@ export function Navbar() {
   const isAdmin = user?.role === 'admin';
 
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
-    logout();
-    navigate('/login');
+    try {
+      await logoutMutation.mutateAsync();
+    } finally {
+      navigate('/login');
+    }
   };
 
   return (

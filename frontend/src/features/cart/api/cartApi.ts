@@ -19,7 +19,7 @@ export async function listPedidos(
   limit = 20,
   estado?: EstadoPedido,
 ): Promise<PedidosPaginados> {
-  const params: Record<string, any> = { skip, limit };
+  const params: Record<string, string | number> = { skip, limit };
   if (estado) params.estado = estado;
   const { data } = await api.get<PedidosPaginados>('/pedidos/', { params });
   return data;

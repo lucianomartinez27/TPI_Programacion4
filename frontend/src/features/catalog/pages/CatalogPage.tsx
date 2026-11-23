@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
 import { useProductos, useCategorias } from '../hooks/useCatalog';
 import { ProductoCard } from '../components/ProductoCard';
@@ -12,15 +12,26 @@ export function CatalogPage() {
   const [search, setSearch] = useState('');
   const [selectedCategoria, setSelectedCategoria] = useState<number | undefined>();
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   // Debounce búsqueda
   const handleSearch = (value: string) => {
     setSearch(value);
-    setPage(0);
-    const timeout = setTimeout(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
       setDebouncedSearch(value);
+      setPage(0);
     }, 400);
-    return () => clearTimeout(timeout);
   };
 
   const { data, isLoading, error } = useProductos(
