@@ -1,10 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listPedidos, getPedido, cancelarPedido } from '../api/ordersApi';
-import { throwApiError } from '../../../shared/api/handleApiError';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { cancelarPedido, getPedido, listPedidos } from '../api/ordersApi';
 import { EstadoPedido } from '../../../shared/api/types';
 import { useAuthStore } from '../../../store/authStore';
+import { PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
 
 export const PEDIDOS_KEY = ['pedidos'];
+const ADMIN_PEDIDOS_KEY = ['admin', 'pedidos'];
+const RESUMEN_KEY = ['resumen'];
 
 export function usePedidos(skip = 0, limit = 20, estado?: EstadoPedido) {
   const userId = useAuthStore((s) => s.user?.id);
@@ -18,9 +20,9 @@ export function usePedidos(skip = 0, limit = 20, estado?: EstadoPedido) {
 export function usePedido(id: number) {
   const userId = useAuthStore((s) => s.user?.id);
   return useQuery({
-    queryKey: ['pedido', userId, id],
+    queryKey: [...PEDIDOS_KEY, 'detail', userId, id],
     queryFn: () => getPedido(id),
-    enabled: !!id && !!userId,
+    enabled: Number.isInteger(id) && id > 0 && !!userId,
   });
 }
 
@@ -29,10 +31,10 @@ export function useCancelarPedidoMutation() {
   return useMutation({
     mutationFn: (id: number) => cancelarPedido(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: ADMIN_PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: RESUMEN_KEY });
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }

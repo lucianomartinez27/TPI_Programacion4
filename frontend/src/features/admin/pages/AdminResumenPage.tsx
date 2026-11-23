@@ -1,40 +1,12 @@
-import { Link } from 'react-router-dom';
+import { CheckCircle, ChefHat, Clock, DollarSign, TrendingUp, XCircle } from 'lucide-react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
+import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
 import { Card } from '../../../shared/ui/Card';
+import { EstadoError, Skeleton } from '../../../shared/components';
 import { useResumenPedidos } from '../hooks/useAdmin';
-import { Clock, ChefHat, CheckCircle, XCircle, TrendingUp, DollarSign, LayoutDashboard, Package, Tag, ShoppingCart, Users } from 'lucide-react';
-
-const adminLinks = [
-  { to: '/admin', label: 'Resumen', icon: LayoutDashboard },
-  { to: '/admin/pedidos', label: 'Pedidos', icon: ShoppingCart },
-  { to: '/admin/categorias', label: 'Categorías', icon: Tag },
-  { to: '/admin/productos', label: 'Productos', icon: Package },
-  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
-];
-
-function AdminSidebar() {
-  return (
-    <nav className="bg-white rounded-xl border border-gray-200 p-4">
-      <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Admin</h2>
-      <ul className="space-y-1">
-        {adminLinks.map((link) => (
-          <li key={link.to}>
-            <Link
-              to={link.to}
-              className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-            >
-              <link.icon className="h-4 w-4" />
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 export function AdminResumenPage() {
-  const { data, isLoading } = useResumenPedidos();
+  const { data, isLoading, isError, error, refetch } = useResumenPedidos();
 
   const cards = [
     {
@@ -91,15 +63,9 @@ export function AdminResumenPage() {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-                  <div className="h-10 w-10 bg-gray-200 rounded-lg mb-3" />
-                  <div className="h-6 bg-gray-200 rounded w-20 mb-2" />
-                  <div className="h-4 bg-gray-200 rounded w-32" />
-                </div>
-              ))}
-            </div>
+            <Skeleton variant="stats" count={6} />
+          ) : isError ? (
+            <EstadoError error={error} onRetry={() => void refetch()} />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {cards.map((card) => (

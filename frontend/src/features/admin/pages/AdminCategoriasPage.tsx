@@ -1,48 +1,71 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 import {
-  useReactTable,
+  createColumnHelper,
+  flexRender,
   getCoreRowModel,
   getPaginationRowModel,
-  flexRender,
-  type ColumnDef,
+  useReactTable,
+  type PaginationState,
 } from '@tanstack/react-table';
+import { Edit2, Plus, Trash2 } from 'lucide-react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
 import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
 import { Button } from '../../../shared/ui/Button';
 import { Input } from '../../../shared/ui/Input';
 import { Modal } from '../../../shared/ui/Modal';
+import { EstadoError, EstadoVacio, Skeleton } from '../../../shared/components';
 import {
   useAllCategorias,
   useCreateCategoriaMutation,
-  useUpdateCategoriaMutation,
   useDeleteCategoriaMutation,
+  useUpdateCategoriaMutation,
 } from '../hooks/useAdmin';
 import type { CategoriaRead } from '../../../shared/api/types';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
+import { handleApiError } from '../../../shared/api/handleApiError';
+
+interface CategoriaFormValues {
+  nombre: string;
+  descripcion: string;
+}
+
+const EMPTY_CATEGORIAS: CategoriaRead[] = [];
+const defaultValues: CategoriaFormValues = { nombre: '', descripcion: '' };
+const columnHelper = createColumnHelper<CategoriaRead>();
+
+function validateNombre(value: string): string | undefined {
+  const len = value.trim().length;
+  if (len < 2) return 'Mínimo 2 caracteres';
+  if (len > 100) return 'Máximo 100 caracteres';
+  return undefined;
+}
 
 export function AdminCategoriasPage() {
-  const { data: categorias = [], isLoading } = useAllCategorias();
+  const { data, isLoading, isError, error: queryError, refetch } = useAllCategorias();
   const createMutation = useCreateCategoriaMutation();
   const updateMutation = useUpdateCategoriaMutation();
   const deleteMutation = useDeleteCategoriaMutation();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
+
+  const categorias = data ?? EMPTY_CATEGORIAS;
 
   const form = useForm({
-    defaultValues: {
-      nombre: '',
-      descripcion: '',
-    },
+    defaultValues,
     onSubmit: async ({ value }) => {
-      setError('');
+      setFormError('');
       try {
         if (editId) {
           await updateMutation.mutateAsync({
             id: editId,
-            data: { nombre: value.nombre.trim(), descripcion: value.descripcion.trim() || undefined },
+            data: {
+              nombre: value.nombre.trim(),
+              descripcion: value.descripcion.trim() || undefined,
+            },
           });
         } else {
           await createMutation.mutateAsync({
@@ -50,54 +73,64 @@ export function AdminCategoriasPage() {
             descripcion: value.descripcion.trim() || undefined,
           });
         }
+        form.reset();
         setModalOpen(false);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Error al guardar');
+        setFormError(handleApiError(err));
       }
     },
   });
 
-  const abrirCrear = () => {
+  const cerrarModal = useCallback(() => setModalOpen(false), []);
+
+  const abrirCrear = useCallback(() => {
     setEditId(null);
     form.reset();
     form.setFieldValue('nombre', '');
     form.setFieldValue('descripcion', '');
-    setError('');
+    setFormError('');
     setModalOpen(true);
-  };
+  }, [form]);
 
-  const abrirEditar = (cat: CategoriaRead) => {
-    setEditId(cat.id);
-    form.reset();
-    form.setFieldValue('nombre', cat.nombre);
-    form.setFieldValue('descripcion', cat.descripcion ?? '');
-    setError('');
-    setModalOpen(true);
-  };
+  const abrirEditar = useCallback(
+    (cat: CategoriaRead) => {
+      setEditId(cat.id);
+      form.reset();
+      form.setFieldValue('nombre', cat.nombre);
+      form.setFieldValue('descripcion', cat.descripcion ?? '');
+      setFormError('');
+      setModalOpen(true);
+    },
+    [form],
+  );
 
-  const handleDelete = (id: number) => {
-    if (window.confirm('¿Estás seguro de desactivar esta categoría?')) {
-      deleteMutation.mutate(id);
-    }
-  };
+  const handleDelete = useCallback(
+    async (id: number) => {
+      if (!window.confirm('¿Estás seguro de desactivar esta categoría?')) return;
+      setActionError('');
+      try {
+        await deleteMutation.mutateAsync(id);
+      } catch (err: unknown) {
+        setActionError(handleApiError(err));
+      }
+    },
+    [deleteMutation],
+  );
 
-  const columns = useMemo<ColumnDef<CategoriaRead>[]>(
+  const columns = useMemo(
     () => [
-      {
-        accessorKey: 'nombre',
+      columnHelper.accessor('nombre', {
         header: 'Nombre',
-        cell: (info) => <span className="font-medium text-gray-900">{info.getValue<string>()}</span>,
-      },
-      {
-        accessorKey: 'descripcion',
+        cell: (info) => <span className="font-medium text-gray-900">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('descripcion', {
         header: 'Descripción',
-        cell: (info) => info.getValue<string | null>() ?? '—',
-      },
-      {
-        accessorKey: 'activo',
+        cell: (info) => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('activo', {
         header: 'Estado',
         cell: (info) => {
-          const activo = info.getValue<boolean>();
+          const activo = info.getValue();
           return (
             <span
               className={`text-xs px-2 py-0.5 rounded-full ${
@@ -108,36 +141,43 @@ export function AdminCategoriasPage() {
             </span>
           );
         },
-      },
-      {
+      }),
+      columnHelper.display({
         id: 'acciones',
         header: 'Acciones',
         cell: ({ row }) => {
           const cat = row.original;
           return (
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => abrirEditar(cat)}>
+              <Button variant="ghost" size="sm" onClick={() => abrirEditar(cat)} title="Editar">
                 <Edit2 className="h-4 w-4" />
               </Button>
               {cat.activo && (
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(cat.id)}>
-                  <Trash2 className="h-4 w-4 text-red-600" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => void handleDelete(cat.id)}
+                  title="Desactivar"
+                >
+                  <Trash2 className="h-4 w-4 text-error" />
                 </Button>
               )}
             </div>
           );
         },
-      },
+      }),
     ],
-    [],
+    [abrirEditar, handleDelete, deleteMutation.isPending],
   );
 
   const table = useReactTable({
     data: categorias,
     columns,
+    state: { pagination },
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
   });
 
   return (
@@ -155,14 +195,25 @@ export function AdminCategoriasPage() {
             </Button>
           </div>
 
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-                  <div className="h-5 bg-gray-200 rounded w-48" />
-                </div>
-              ))}
+          {actionError && (
+            <div
+              role="alert"
+              className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3"
+            >
+              {actionError}
             </div>
+          )}
+
+          {isLoading ? (
+            <Skeleton variant="list" count={3} />
+          ) : isError ? (
+            <EstadoError error={queryError} onRetry={() => void refetch()} />
+          ) : categorias.length === 0 ? (
+            <EstadoVacio
+              title="No hay categorías cargadas"
+              description="Creá tu primera categoría para empezar a organizar el catálogo."
+              action={<Button onClick={abrirCrear}>Nueva categoría</Button>}
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
@@ -231,10 +282,11 @@ export function AdminCategoriasPage() {
       {/* Modal crear/editar */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={cerrarModal}
         title={editId ? 'Editar categoría' : 'Nueva categoría'}
       >
         <form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -242,48 +294,53 @@ export function AdminCategoriasPage() {
           }}
           className="space-y-4"
         >
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
-              {error}
+          {formError && (
+            <div
+              role="alert"
+              className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2"
+            >
+              {formError}
             </div>
           )}
 
           <form.Field
             name="nombre"
             validators={{
-              onChange: ({ value }) => {
-                const len = value.trim().length;
-                if (len < 2) return 'Mínimo 2 caracteres';
-                if (len > 100) return 'Máximo 100 caracteres';
-                return undefined;
-              },
+              onChange: ({ value }) => validateNombre(value),
+              onBlur: ({ value }) => validateNombre(value),
             }}
           >
-            {(field) => (
-              <div>
+            {(field) => {
+              const fieldError = field.state.meta.errors.filter(Boolean).map(String).join(', ');
+              return (
                 <Input
                   label="Nombre"
+                  name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  required
+                  error={fieldError || undefined}
                 />
-                {field.state.meta.errors.length > 0 && (
-                  <p className="text-xs text-red-600 mt-1">{field.state.meta.errors[0]}</p>
-                )}
-              </div>
-            )}
+              );
+            }}
           </form.Field>
 
           <form.Field name="descripcion">
             {(field) => (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <label
+                  htmlFor="categoria-descripcion"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Descripción
+                </label>
                 <textarea
+                  id="categoria-descripcion"
+                  name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus-visible:outline-2 focus-visible:outline-brand"
                   rows={3}
                 />
               </div>
@@ -291,12 +348,20 @@ export function AdminCategoriasPage() {
           </form.Field>
 
           <div className="flex gap-3 justify-end">
-            <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>
+            <Button variant="secondary" onClick={cerrarModal}>
               Cancelar
             </Button>
-            <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
-              Guardar
-            </Button>
+            <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+              {([canSubmit, isSubmitting]) => (
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
+                  loading={isSubmitting || createMutation.isPending || updateMutation.isPending}
+                >
+                  Guardar
+                </Button>
+              )}
+            </form.Subscribe>
           </div>
         </form>
       </Modal>

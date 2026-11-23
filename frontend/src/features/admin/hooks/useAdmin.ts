@@ -1,9 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getResumenPedidos, listAllPedidos, updateEstadoPedido, listUsers, activateUser, deactivateUser } from '../api/adminApi';
-import { createProducto, updateProducto, updateStock, deleteProducto, createCategoria, updateCategoria, deleteCategoria, listAllCategorias } from '../../catalog/api/catalogApi';
-import { throwApiError } from '../../../shared/api/handleApiError';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  activateUser,
+  deactivateUser,
+  getResumenPedidos,
+  listAllPedidos,
+  listUsers,
+  updateEstadoPedido,
+} from '../api/adminApi';
+import {
+  createCategoria,
+  createProducto,
+  deleteCategoria,
+  deleteProducto,
+  listAllCategorias,
+  updateCategoria,
+  updateProducto,
+  updateStock,
+} from '../../catalog/api/catalogApi';
 import { EstadoPedido } from '../../../shared/api/types';
-import { PRODUCTOS_KEY, CATEGORIAS_KEY } from '../../catalog/hooks/useCatalog';
+import { CATEGORIAS_KEY, PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
 import { PEDIDOS_KEY } from '../../orders/hooks/useOrders';
 
 export const RESUMEN_KEY = ['resumen'];
@@ -30,12 +45,10 @@ export function useUpdateEstadoPedidoMutation() {
     mutationFn: ({ id, estado }: { id: number; estado: EstadoPedido }) =>
       updateEstadoPedido(id, estado),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ADMIN_PEDIDOS_KEY });
-      qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
-      qc.invalidateQueries({ queryKey: RESUMEN_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: ADMIN_PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: RESUMEN_KEY });
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -53,10 +66,7 @@ export function useActivateUserMutation() {
   return useMutation({
     mutationFn: (id: number) => activateUser(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: USUARIOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: USUARIOS_KEY });
     },
   });
 }
@@ -66,10 +76,7 @@ export function useDeactivateUserMutation() {
   return useMutation({
     mutationFn: (id: number) => deactivateUser(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: USUARIOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: USUARIOS_KEY });
     },
   });
 }
@@ -101,10 +108,7 @@ export function useCreateProductoMutation() {
   return useMutation({
     mutationFn: (data: ProductoCreatePayload) => createProducto(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -115,10 +119,7 @@ export function useUpdateProductoMutation() {
     mutationFn: ({ id, data }: { id: number; data: ProductoUpdatePayload }) =>
       updateProducto(id, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -129,10 +130,7 @@ export function useUpdateStockMutation() {
     mutationFn: ({ id, stock, disponible }: { id: number; stock: number; disponible?: boolean }) =>
       updateStock(id, { stock, disponible }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -142,10 +140,7 @@ export function useDeleteProductoMutation() {
   return useMutation({
     mutationFn: (id: number) => deleteProducto(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -161,13 +156,9 @@ export function useAllCategorias() {
 export function useCreateCategoriaMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { nombre: string; descripcion?: string }) =>
-      createCategoria(data),
+    mutationFn: (data: { nombre: string; descripcion?: string }) => createCategoria(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
     },
   });
 }
@@ -175,13 +166,16 @@ export function useCreateCategoriaMutation() {
 export function useUpdateCategoriaMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { nombre?: string; descripcion?: string; activo?: boolean } }) =>
-      updateCategoria(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { nombre?: string; descripcion?: string; activo?: boolean };
+    }) => updateCategoria(id, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }
@@ -191,10 +185,8 @@ export function useDeleteCategoriaMutation() {
   return useMutation({
     mutationFn: (id: number) => deleteCategoria(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: CATEGORIAS_KEY });
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }

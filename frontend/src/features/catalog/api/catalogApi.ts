@@ -14,6 +14,11 @@ export async function listProductos(
   return data;
 }
 
+export async function getProducto(id: number): Promise<ProductoRead> {
+  const { data } = await api.get<ProductoRead>(`/productos/${id}`);
+  return data;
+}
+
 export async function getCategorias(): Promise<CategoriaRead[]> {
   const { data } = await api.get<CategoriaRead[]>('/categorias/');
   return data;

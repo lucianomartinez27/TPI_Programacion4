@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ChevronRight, ExternalLink, Package, XCircle } from 'lucide-react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
 import { Card } from '../../../shared/ui/Card';
 import { Button } from '../../../shared/ui/Button';
 import { BadgeEstado } from '../../../shared/ui/BadgeEstado';
-import { usePedidos, useCancelarPedidoMutation } from '../hooks/useOrders';
-import { EstadoPedido, FormaPago } from '../../../shared/api/types';
-import { Package, XCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { EstadoError, EstadoVacio, Paginacion, Skeleton } from '../../../shared/components';
+import { useCancelarPedidoMutation, usePedidos } from '../hooks/useOrders';
+import { EstadoPedido } from '../../../shared/api/types';
+import { estadoPedidoLabel, formaPagoLabel } from '../../../shared/api/labels';
+import { handleApiError } from '../../../shared/api/handleApiError';
 
 const LIMIT = 10;
 
@@ -13,17 +17,26 @@ export function OrdersPage() {
   const [page, setPage] = useState(0);
   const [selectedPedido, setSelectedPedido] = useState<number | null>(null);
   const [filterEstado, setFilterEstado] = useState<EstadoPedido | undefined>();
+  const [actionError, setActionError] = useState('');
 
-  const { data, isLoading } = usePedidos(page * LIMIT, LIMIT, filterEstado);
+  const { data, isLoading, isError, error, refetch } = usePedidos(
+    page * LIMIT,
+    LIMIT,
+    filterEstado,
+  );
   const cancelarMutation = useCancelarPedidoMutation();
 
   const pedidoSeleccionado = data?.items.find((p) => p.id === selectedPedido);
-
   const totalPages = data ? Math.ceil(data.total / LIMIT) : 0;
 
-  const formaPagoLabel: Record<FormaPago, string> = {
-    [FormaPago.EFECTIVO]: 'Efectivo',
-    [FormaPago.TRANSFERENCIA]: 'Transferencia',
+  const handleCancel = async (pedidoId: number) => {
+    if (!window.confirm('¿Estás seguro de cancelar este pedido?')) return;
+    setActionError('');
+    try {
+      await cancelarMutation.mutateAsync(pedidoId);
+    } catch (err: unknown) {
+      setActionError(handleApiError(err));
+    }
   };
 
   return (
@@ -33,32 +46,46 @@ export function OrdersPage() {
         <p className="text-gray-500 mt-1">Consultá el estado de tus pedidos</p>
       </div>
 
+      {actionError && (
+        <div
+          role="alert"
+          className="mb-6 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3"
+        >
+          {actionError}
+        </div>
+      )}
+
       {/* Filtro por estado */}
       <div className="flex flex-wrap gap-2 mb-6">
         <button
-          onClick={() => { setFilterEstado(undefined); setPage(0); }}
-          className={`px-3 py-1.5 text-sm rounded-full border ${
-            !filterEstado ? 'bg-orange-600 text-white border-orange-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+          type="button"
+          onClick={() => {
+            setFilterEstado(undefined);
+            setPage(0);
+          }}
+          className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+            !filterEstado
+              ? 'bg-brand text-white border-brand'
+              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
           }`}
         >
           Todos
         </button>
         {Object.values(EstadoPedido).map((estado) => (
           <button
+            type="button"
             key={estado}
-            onClick={() => { setFilterEstado(estado); setPage(0); }}
-            className={`px-3 py-1.5 text-sm rounded-full border ${
-              filterEstado === estado ? 'bg-orange-600 text-white border-orange-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            onClick={() => {
+              setFilterEstado(estado);
+              setPage(0);
+            }}
+            className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+              filterEstado === estado
+                ? 'bg-brand text-white border-brand'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
             }`}
           >
-            {(() => {
-              switch (estado) {
-                case EstadoPedido.PENDIENTE: return 'Pendiente';
-                case EstadoPedido.EN_PREPARACION: return 'En preparación';
-                case EstadoPedido.ENTREGADO: return 'Entregado';
-                case EstadoPedido.CANCELADO: return 'Cancelado';
-              }
-            })()}
+            {estadoPedidoLabel[estado]}
           </button>
         ))}
       </div>
@@ -67,27 +94,29 @@ export function OrdersPage() {
         {/* Lista de pedidos */}
         <div className="lg:col-span-2 space-y-3">
           {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-                <div className="flex justify-between">
-                  <div className="h-5 bg-gray-200 rounded w-32" />
-                  <div className="h-6 bg-gray-200 rounded w-20" />
-                </div>
-                <div className="h-4 bg-gray-200 rounded w-48 mt-3" />
-              </div>
-            ))
-          ) : data?.items.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No tenés pedidos aún</p>
-            </div>
+            <Skeleton variant="list" count={3} />
+          ) : isError ? (
+            <EstadoError error={error} onRetry={() => void refetch()} />
+          ) : !data || data.items.length === 0 ? (
+            <EstadoVacio
+              title="No tenés pedidos aún"
+              description="Cuando confirmes un pedido desde el carrito aparecerá aquí."
+              action={
+                <Link
+                  to="/"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-hover transition-colors"
+                >
+                  Ir al catálogo
+                </Link>
+              }
+            />
           ) : (
             <>
-              {data?.items.map((pedido) => (
+              {data.items.map((pedido) => (
                 <Card
                   key={pedido.id}
                   className={`cursor-pointer transition-colors ${
-                    selectedPedido === pedido.id ? 'ring-2 ring-orange-500' : 'hover:shadow-md'
+                    selectedPedido === pedido.id ? 'ring-2 ring-brand' : 'hover:shadow-md'
                   }`}
                 >
                   <div
@@ -110,35 +139,19 @@ export function OrdersPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-orange-600">${pedido.total.toFixed(2)}</p>
+                      <p className="font-bold text-brand">${pedido.total.toFixed(2)}</p>
                       <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
                     </div>
                   </div>
                 </Card>
               ))}
 
-              {/* Paginación */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  <button
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={page === 0}
-                    className="px-3 py-2 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-sm text-gray-600">
-                    {page + 1} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={page >= totalPages - 1}
-                    className="px-3 py-2 text-sm border rounded-lg disabled:opacity-50 hover:bg-gray-50"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+              <Paginacion
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                className="mt-4"
+              />
             </>
           )}
         </div>
@@ -146,7 +159,18 @@ export function OrdersPage() {
         {/* Detalle del pedido */}
         <div>
           {pedidoSeleccionado ? (
-            <Card title={`Pedido #${pedidoSeleccionado.id}`}>
+            <Card
+              title={`Pedido #${pedidoSeleccionado.id}`}
+              actions={
+                <Link
+                  to={`/mis-pedidos/${pedidoSeleccionado.id}`}
+                  className="text-xs text-brand hover:underline inline-flex items-center gap-1"
+                >
+                  Ver página
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              }
+            >
               <div className="space-y-4">
                 <div>
                   <span className="text-sm text-gray-500">Estado</span>
@@ -182,7 +206,7 @@ export function OrdersPage() {
                   </ul>
                   <div className="flex justify-between font-bold text-lg mt-3 pt-3 border-t">
                     <span>Total</span>
-                    <span className="text-orange-600">${pedidoSeleccionado.total.toFixed(2)}</span>
+                    <span className="text-brand">${pedidoSeleccionado.total.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -191,11 +215,7 @@ export function OrdersPage() {
                     variant="danger"
                     className="w-full"
                     loading={cancelarMutation.isPending}
-                    onClick={() => {
-                      if (window.confirm('¿Estás seguro de cancelar este pedido?')) {
-                        cancelarMutation.mutate(pedidoSeleccionado.id);
-                      }
-                    }}
+                    onClick={() => void handleCancel(pedidoSeleccionado.id)}
                   >
                     <XCircle className="h-4 w-4 mr-2" />
                     Cancelar pedido

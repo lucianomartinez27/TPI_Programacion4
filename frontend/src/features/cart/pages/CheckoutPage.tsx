@@ -1,28 +1,42 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from '@tanstack/react-form';
+import { ArrowRight, ShoppingCart } from 'lucide-react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
 import { Card } from '../../../shared/ui/Card';
 import { Button } from '../../../shared/ui/Button';
 import { Input } from '../../../shared/ui/Input';
-import { useCartStore } from '../../../store/cartStore';
+import { EstadoVacio } from '../../../shared/components';
+import { selectCartTotal, useCartStore } from '../../../store/cartStore';
 import { useCreatePedidoMutation } from '../hooks/useCartMutations';
 import { FormaPago } from '../../../shared/api/types';
-import { ShoppingCart, ArrowRight } from 'lucide-react';
+import { handleApiError } from '../../../shared/api/handleApiError';
+
+interface CheckoutFormValues {
+  direccion_entrega: string;
+  forma_pago: FormaPago;
+  notas: string;
+}
+
+const defaultValues: CheckoutFormValues = {
+  direccion_entrega: '',
+  forma_pago: FormaPago.EFECTIVO,
+  notas: '',
+};
+
+function parseFormaPago(value: string): FormaPago {
+  return value === FormaPago.TRANSFERENCIA ? FormaPago.TRANSFERENCIA : FormaPago.EFECTIVO;
+}
 
 export function CheckoutPage() {
   const items = useCartStore((s) => s.items);
-  const total = useCartStore((s) => s.total());
+  const total = useCartStore(selectCartTotal);
   const navigate = useNavigate();
   const createPedido = useCreatePedidoMutation();
   const [submitError, setSubmitError] = useState('');
 
   const form = useForm({
-    defaultValues: {
-      direccion_entrega: '',
-      forma_pago: FormaPago.EFECTIVO as FormaPago,
-      notas: '',
-    },
+    defaultValues,
     onSubmit: async ({ value }) => {
       setSubmitError('');
       if (items.length === 0) {
@@ -38,7 +52,7 @@ export function CheckoutPage() {
         });
         navigate('/mis-pedidos');
       } catch (err: unknown) {
-        setSubmitError(err instanceof Error ? err.message : 'Error al crear el pedido');
+        setSubmitError(handleApiError(err));
       }
     },
   });
@@ -46,11 +60,20 @@ export function CheckoutPage() {
   if (items.length === 0) {
     return (
       <MainLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <ShoppingCart className="h-16 w-16 text-gray-300 mb-4" />
-          <h2 className="text-xl font-semibold text-gray-700">Tu carrito está vacío</h2>
-          <p className="text-gray-500 mt-1 mb-6">Agregá productos antes de confirmar tu pedido</p>
-          <Button onClick={() => navigate('/')}>Ir al catálogo</Button>
+        <div className="max-w-xl mx-auto mt-12">
+          <EstadoVacio
+            icon={<ShoppingCart className="h-14 w-14" />}
+            title="Tu carrito está vacío"
+            description="Agregá productos antes de confirmar tu pedido."
+            action={
+              <Link
+                to="/"
+                className="inline-flex items-center justify-center px-5 py-2.5 text-sm font-medium rounded-lg bg-brand text-white hover:bg-brand-hover transition-colors"
+              >
+                Ir al catálogo
+              </Link>
+            }
+          />
         </div>
       </MainLayout>
     );
@@ -65,9 +88,9 @@ export function CheckoutPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Datos de entrega</h2>
+          <Card title="Datos de entrega">
             <form
+              noValidate
               onSubmit={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -76,7 +99,10 @@ export function CheckoutPage() {
               className="space-y-4"
             >
               {submitError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2">
+                <div
+                  role="alert"
+                  className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2"
+                >
                   {submitError}
                 </div>
               )}
@@ -90,37 +116,47 @@ export function CheckoutPage() {
                     if (len > 200) return 'La dirección no puede superar los 200 caracteres';
                     return undefined;
                   },
+                  onBlur: ({ value }) => {
+                    const len = value.trim().length;
+                    if (len < 5) return 'La dirección debe tener al menos 5 caracteres';
+                    if (len > 200) return 'La dirección no puede superar los 200 caracteres';
+                    return undefined;
+                  },
                 }}
               >
-                {(field) => (
-                  <div>
+                {(field) => {
+                  const fieldError = field.state.meta.errors.filter(Boolean).map(String).join(', ');
+                  return (
                     <Input
                       label="Dirección de entrega"
+                      name={field.name}
                       type="text"
                       placeholder="Ej: Av. Colón 1234, Piso 2"
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      required
+                      error={fieldError || undefined}
                     />
-                    {field.state.meta.errors.length > 0 && (
-                      <p className="text-xs text-red-600 mt-1">{field.state.meta.errors[0]}</p>
-                    )}
-                  </div>
-                )}
+                  );
+                }}
               </form.Field>
 
               <form.Field name="forma_pago">
                 {(field) => (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="forma-pago"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Forma de pago
                     </label>
                     <select
+                      id="forma-pago"
+                      name={field.name}
                       value={field.state.value}
                       onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value as FormaPago)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                      onChange={(e) => field.handleChange(parseFormaPago(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus-visible:outline-2 focus-visible:outline-brand bg-white"
                     >
                       <option value={FormaPago.EFECTIVO}>Efectivo</option>
                       <option value={FormaPago.TRANSFERENCIA}>Transferencia</option>
@@ -132,15 +168,20 @@ export function CheckoutPage() {
               <form.Field name="notas">
                 {(field) => (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label
+                      htmlFor="notas-pedido"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Notas (opcional)
                     </label>
                     <textarea
+                      id="notas-pedido"
+                      name={field.name}
                       value={field.state.value}
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       placeholder="Instrucciones adicionales para el repartidor..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus-visible:outline-2 focus-visible:outline-brand"
                       rows={3}
                     />
                   </div>
@@ -148,29 +189,32 @@ export function CheckoutPage() {
               </form.Field>
 
               <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => navigate('/carrito')}
+                <Link
+                  to="/carrito"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
                 >
                   Volver al carrito
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  loading={createPedido.isPending}
-                >
-                  Confirmar pedido
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
+                </Link>
+                <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+                  {([canSubmit, isSubmitting]) => (
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={!canSubmit}
+                      loading={isSubmitting || createPedido.isPending}
+                    >
+                      Confirmar pedido
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  )}
+                </form.Subscribe>
               </div>
             </form>
           </Card>
         </div>
 
         <div>
-          <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen del pedido</h2>
+          <Card title="Resumen del pedido">
             <div className="space-y-3 border-b border-gray-100 pb-4 mb-4">
               {items.map((item) => (
                 <div key={item.producto_id} className="flex justify-between text-sm">
@@ -185,7 +229,7 @@ export function CheckoutPage() {
             </div>
             <div className="flex justify-between text-lg font-bold text-gray-900">
               <span>Total</span>
-              <span className="text-orange-600">${total.toFixed(2)}</span>
+              <span className="text-brand">${total.toFixed(2)}</span>
             </div>
           </Card>
         </div>

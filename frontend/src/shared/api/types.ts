@@ -1,11 +1,13 @@
 // Tipos compartidos con el backend
 
+export type Role = 'user' | 'admin';
+
 export interface UserRead {
   id: number;
   username: string;
   email: string;
   full_name: string;
-  role: string;
+  role: Role;
   disabled: boolean;
   created_at: string;
 }
@@ -15,7 +17,7 @@ export interface UsuarioListRead {
   username: string;
   email: string;
   full_name: string;
-  role: string;
+  role: Role;
   disabled: boolean;
   created_at: string;
 }
@@ -94,7 +96,7 @@ export interface ResumenPedidos {
   ingresos_entregados: number;
 }
 
-// Items del carrito (estado local)
+// Items del carrito (estado local persistido)
 export interface CartItem {
   producto_id: number;
   nombre: string;

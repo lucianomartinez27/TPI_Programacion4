@@ -1,10 +1,8 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './shared/api/queryClient';
+import { useEffect } from 'react';
 import { AppRouter } from './routes/AppRouter';
 import { useAuthStore } from './store/authStore';
-import { useEffect } from 'react';
 
-function AppContent() {
+export function App() {
   const checkSession = useAuthStore((s) => s.checkSession);
 
   useEffect(() => {
@@ -14,12 +12,4 @@ function AppContent() {
   return <AppRouter />;
 }
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AppContent />
-    </QueryClientProvider>
-  );
-}
-
-export default App
+export default App;

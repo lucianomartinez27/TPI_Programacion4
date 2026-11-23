@@ -1,57 +1,74 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  useReactTable,
+  createColumnHelper,
+  flexRender,
   getCoreRowModel,
   getPaginationRowModel,
-  flexRender,
-  type ColumnDef,
+  useReactTable,
+  type PaginationState,
 } from '@tanstack/react-table';
+import { UserCheck, UserX } from 'lucide-react';
 import { MainLayout } from '../../../shared/layout/MainLayout';
 import { AdminSidebar } from '../../../shared/layout/AdminSidebar';
 import { Button } from '../../../shared/ui/Button';
+import { EstadoError, EstadoVacio, Skeleton } from '../../../shared/components';
 import { useAuthStore } from '../../../store/authStore';
-import { useUsuarios, useActivateUserMutation, useDeactivateUserMutation } from '../hooks/useAdmin';
+import {
+  useActivateUserMutation,
+  useDeactivateUserMutation,
+  useUsuarios,
+} from '../hooks/useAdmin';
 import type { UsuarioListRead } from '../../../shared/api/types';
-import { UserCheck, UserX } from 'lucide-react';
+import { handleApiError } from '../../../shared/api/handleApiError';
+
+const EMPTY_USUARIOS: UsuarioListRead[] = [];
+const columnHelper = createColumnHelper<UsuarioListRead>();
 
 export function AdminUsuariosPage() {
-  const { data: usuarios = [], isLoading } = useUsuarios();
+  const { data, isLoading, isError, error, refetch } = useUsuarios();
   const currentUser = useAuthStore((s) => s.user);
   const activateMutation = useActivateUserMutation();
   const deactivateMutation = useDeactivateUserMutation();
 
-  const handleToggle = (userId: number, disabled: boolean) => {
-    if (disabled) {
-      if (window.confirm('¿Activar este usuario?')) {
-        activateMutation.mutate(userId);
-      }
-    } else {
-      if (window.confirm('¿Desactivar este usuario?')) {
-        deactivateMutation.mutate(userId);
-      }
-    }
-  };
+  const [actionError, setActionError] = useState('');
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
 
-  const columns = useMemo<ColumnDef<UsuarioListRead>[]>(
+  const usuarios = data ?? EMPTY_USUARIOS;
+
+  const handleToggle = useCallback(
+    async (userId: number, disabled: boolean) => {
+      setActionError('');
+      try {
+        if (disabled) {
+          if (!window.confirm('¿Activar este usuario?')) return;
+          await activateMutation.mutateAsync(userId);
+        } else {
+          if (!window.confirm('¿Desactivar este usuario?')) return;
+          await deactivateMutation.mutateAsync(userId);
+        }
+      } catch (err: unknown) {
+        setActionError(handleApiError(err));
+      }
+    },
+    [activateMutation, deactivateMutation],
+  );
+
+  const columns = useMemo(
     () => [
-      {
-        accessorKey: 'username',
+      columnHelper.accessor('username', {
         header: 'Usuario',
-        cell: (info) => <span className="font-medium text-gray-900">@{info.getValue<string>()}</span>,
-      },
-      {
-        accessorKey: 'full_name',
+        cell: (info) => <span className="font-medium text-gray-900">@{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('full_name', {
         header: 'Nombre',
-      },
-      {
-        accessorKey: 'email',
+      }),
+      columnHelper.accessor('email', {
         header: 'Email',
-      },
-      {
-        accessorKey: 'role',
+      }),
+      columnHelper.accessor('role', {
         header: 'Rol',
         cell: (info) => {
-          const role = info.getValue<string>();
+          const role = info.getValue();
           return (
             <span
               className={`text-xs px-2 py-0.5 rounded-full ${
@@ -62,12 +79,11 @@ export function AdminUsuariosPage() {
             </span>
           );
         },
-      },
-      {
-        accessorKey: 'disabled',
+      }),
+      columnHelper.accessor('disabled', {
         header: 'Estado',
         cell: (info) => {
-          const disabled = info.getValue<boolean>();
+          const disabled = info.getValue();
           return (
             <span
               className={`text-xs px-2 py-0.5 rounded-full ${
@@ -78,8 +94,8 @@ export function AdminUsuariosPage() {
             </span>
           );
         },
-      },
-      {
+      }),
+      columnHelper.display({
         id: 'acciones',
         header: 'Acciones',
         cell: ({ row }) => {
@@ -90,7 +106,7 @@ export function AdminUsuariosPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => handleToggle(u.id, true)}
+                onClick={() => void handleToggle(u.id, true)}
                 loading={activateMutation.isPending}
               >
                 <UserCheck className="h-4 w-4 mr-1" />
@@ -105,7 +121,7 @@ export function AdminUsuariosPage() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => handleToggle(u.id, false)}
+              onClick={() => void handleToggle(u.id, false)}
               loading={deactivateMutation.isPending}
             >
               <UserX className="h-4 w-4 mr-1" />
@@ -113,17 +129,18 @@ export function AdminUsuariosPage() {
             </Button>
           );
         },
-      },
+      }),
     ],
-    [currentUser?.id, activateMutation.isPending, deactivateMutation.isPending],
+    [currentUser?.id, handleToggle, activateMutation.isPending, deactivateMutation.isPending],
   );
 
   const table = useReactTable({
     data: usuarios,
     columns,
+    state: { pagination },
+    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
   });
 
   return (
@@ -135,14 +152,24 @@ export function AdminUsuariosPage() {
             <p className="text-gray-500 mt-1">Gestioná los usuarios registrados</p>
           </div>
 
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 p-6 animate-pulse">
-                  <div className="h-5 bg-gray-200 rounded w-48" />
-                </div>
-              ))}
+          {actionError && (
+            <div
+              role="alert"
+              className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3"
+            >
+              {actionError}
             </div>
+          )}
+
+          {isLoading ? (
+            <Skeleton variant="list" count={3} />
+          ) : isError ? (
+            <EstadoError error={error} onRetry={() => void refetch()} />
+          ) : usuarios.length === 0 ? (
+            <EstadoVacio
+              title="No hay usuarios registrados"
+              description="Cuando se registren usuarios aparecerán en esta tabla."
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">

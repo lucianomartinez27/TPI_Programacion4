@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCartStore } from '../../../store/cartStore';
 import { createPedido } from '../api/cartApi';
-import { throwApiError } from '../../../shared/api/handleApiError';
 import type { FormaPago } from '../../../shared/api/types';
 import { PEDIDOS_KEY } from '../../orders/hooks/useOrders';
 import { PRODUCTOS_KEY } from '../../catalog/hooks/useCatalog';
@@ -19,13 +18,10 @@ export function useCreatePedidoMutation() {
     }) => createPedido(data),
     onSuccess: () => {
       vaciar();
-      qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
-      qc.invalidateQueries({ queryKey: ADMIN_PEDIDOS_KEY });
-      qc.invalidateQueries({ queryKey: RESUMEN_KEY });
-      qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
-    },
-    onError: (error) => {
-      throwApiError(error);
+      void qc.invalidateQueries({ queryKey: PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: ADMIN_PEDIDOS_KEY });
+      void qc.invalidateQueries({ queryKey: RESUMEN_KEY });
+      void qc.invalidateQueries({ queryKey: PRODUCTOS_KEY });
     },
   });
 }

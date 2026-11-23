@@ -12,6 +12,15 @@ interface CartState {
   totalItems: () => number;
 }
 
+export const selectCartTotal = (state: CartState): number =>
+  state.items.reduce(
+    (sum, item) => sum + (Number(item.precio_base) || 0) * (Number(item.cantidad) || 0),
+    0,
+  );
+
+export const selectCartTotalItems = (state: CartState): number =>
+  state.items.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0);
+
 function normalizeCartItem(raw: unknown): CartItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const item = raw as Record<string, unknown>;
@@ -76,18 +85,12 @@ export const useCartStore = create<CartState>()(
         }));
       },
       vaciar: () => set({ items: [] }),
-      total: () => {
-        return get().items.reduce(
-          (sum, i) => sum + (Number(i.precio_base) || 0) * (Number(i.cantidad) || 0),
-          0,
-        );
-      },
-      totalItems: () => {
-        return get().items.reduce((sum, i) => sum + (Number(i.cantidad) || 0), 0);
-      },
+      total: () => selectCartTotal(get()),
+      totalItems: () => selectCartTotalItems(get()),
     }),
     {
       name: 'cart-storage',
+      partialize: (state) => ({ items: state.items }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as { items?: unknown[] } | undefined;
         const normalizedItems = Array.isArray(persisted?.items)
